@@ -6,7 +6,8 @@ import wandb
 from hand_env_utils.arg_utils import *
 from hand_env_utils.teleop_env import create_relocate_env
 from hand_env_utils.wandb_callback import WandbCallback
-from stable_baselines3.common.torch_layers import PointNetExtractor
+from hand_teleop.real_world import task_setting
+from stable_baselines3.common.torch_layers import PointNetImaginationExtractor
 from stable_baselines3.common.vec_env.subproc_vec_env import SubprocVecEnv
 from stable_baselines3.ppo import PPO
 
@@ -56,6 +57,7 @@ if __name__ == '__main__':
 
     def create_env_fn():
         environment = create_relocate_env(object_name, use_visual_obs=True)
+        environment.setup_imagination_config(task_setting.IMG_CONFIG["relocate_goal_robot"])
         return environment
 
 
@@ -63,12 +65,12 @@ if __name__ == '__main__':
 
     print(env.observation_space, env.action_space)
 
-    feature_extractor_class = PointNetExtractor
+    feature_extractor_class = PointNetImaginationExtractor
     feature_extractor_kwargs = {
         "pc_key": "relocate-point_cloud",
-        # "feat_key": "relocate-point_cloud_feature",
         "local_channels": (64, 128, 256),
         "global_channels": (256,),
+        "imagination_keys": ("imagination_goal",)
     }
     policy_kwargs = {
         "features_extractor_class": feature_extractor_class,

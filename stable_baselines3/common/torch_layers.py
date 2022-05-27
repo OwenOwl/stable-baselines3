@@ -5,6 +5,7 @@ import gym
 import torch
 import torch as th
 from torch import nn
+import torch.nn.functional as F
 
 from stable_baselines3.common.preprocessing import get_flattened_obs_dim, is_image_space
 from stable_baselines3.common.type_aliases import TensorDict
@@ -324,10 +325,14 @@ class PointNetExtractor(BaseFeaturesExtractor):
     :param observation_space:
     """
 
-    def __init__(self, observation_space: gym.spaces.Dict, pc_key: str,
-                 feat_key: Optional[str] = None, local_channels=(64, 128, 256), global_channels=(256, )):
+    def __init__(self, observation_space: gym.spaces.Dict, pc_key: str, feat_key: Optional[str] = None,
+                 local_channels=(64, 128, 256), global_channels=(256,), one_hot_dim=0):
         if feat_key is not None:
-            assert feat_key in observation_space
+            if feat_key not in list(observation_space.keys()):
+                raise RuntimeError(f"Feature key {feat_key} not in observation space.")
+        if pc_key not in list(observation_space.keys()):
+            raise RuntimeError(f"Point cloud key {pc_key} not in observation space.")
+
         # Point cloud input should have size (n, 3), spec size (n, 3), feat size (n, m)
         self.pc_key = pc_key
         self.has_feat = feat_key is not None
@@ -343,7 +348,7 @@ class PointNetExtractor(BaseFeaturesExtractor):
 
         super().__init__(observation_space, features_dim)
 
-        n_input_channels = pc_dim + feat_dim
+        n_input_channels = pc_dim + feat_dim + one_hot_dim
         self.point_net = PointNet(n_input_channels, local_channels=local_channels, global_channels=global_channels)
         self.n_input_channels = n_input_channels
         self.n_output_channels = self.point_net.out_channels
@@ -354,6 +359,60 @@ class PointNetExtractor(BaseFeaturesExtractor):
             feats = torch.transpose(observations[self.feat_key], 1, 2)
         else:
             feats = None
+        return self.point_net(points, feats)["feature"]
+
+
+class PointNetImaginationExtractor(PointNetExtractor):
+    def __init__(self, observation_space: gym.spaces.Dict, pc_key: str,
+                 local_channels=(64, 128, 256), global_channels=(256,), imagination_keys=("imagination_robot",)):
+        self.imagination_key = imagination_keys
+        self.imagination_one_hot = []
+        if len(imagination_keys) >= 1:
+            one_hot_dim = 4
+        else:
+            one_hot_dim = 0  # Vanilla PointNet
+
+        super().__init__(observation_space, pc_key, None, local_channels=local_channels,
+                         global_channels=global_channels, one_hot_dim=one_hot_dim)
+
+        # One hot vector for imagination
+        num_class = 4
+        device = next(self.parameters()).device
+        for key in imagination_keys:
+            if key not in list(observation_space.keys()):
+                raise RuntimeError(f"Imagination key {key} not in observation space.")
+            if key == "imagination_robot":
+                img_type = 1
+            elif key == "imagination_goal":
+                img_type = 2
+            else:
+                raise NotImplementedError
+            num_points = observation_space[key].shape[0]
+            tensor_img_type = torch.ones(num_points, dtype=torch.long, device=device) * img_type
+            self.imagination_one_hot.append(F.one_hot(tensor_img_type, num_class).to(torch.float32))
+
+        # One hot vector for observation
+        num_points = observation_space[pc_key].shape[0]
+        obs_tensor_img_type = torch.zeros(num_points, num_class, dtype=torch.float32, device=device)
+        self.obs_pc_one_hot = obs_tensor_img_type
+
+        self.img_feats = torch.transpose(torch.cat([self.obs_pc_one_hot] + self.imagination_one_hot), 0, 1).unsqueeze(
+            0)  # (1, 4, p)
+
+    def forward(self, observations: TensorDict) -> th.Tensor:
+        points = torch.transpose(observations[self.pc_key], 1, 2)
+        batch_size = points.shape[0]
+        if self.img_feats.device != points.device:
+            self.img_feats = self.img_feats.to(points.device)
+        if len(self.imagination_key) > 0:
+            img_points = []
+            for key in self.imagination_key:
+                img_points.append(observations[key].transpose(1, 2))
+            points = torch.cat([points] + img_points, dim=2)
+            feats = torch.tile(self.img_feats, (batch_size, 1, 1))
+        else:
+            feats = None
+
         return self.point_net(points, feats)["feature"]
 
 

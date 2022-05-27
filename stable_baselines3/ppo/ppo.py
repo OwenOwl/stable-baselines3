@@ -281,6 +281,9 @@ class PPO(OnPolicyAlgorithm):
                     approx_kl_div = th.mean((th.exp(log_ratio) - 1) - log_ratio).cpu().numpy()
                     approx_kl_divs.append(approx_kl_div)
 
+                if approx_kl_div > 1:
+                    break
+
                 lr = self.kl_scheduler.update(approx_kl_div)
                 update_learning_rate(self.policy.optimizer, lr)
 
