@@ -325,7 +325,7 @@ class PointNetExtractor(BaseFeaturesExtractor):
     :param observation_space:
     """
 
-    def __init__(self, observation_space: gym.spaces.Dict, pc_key: str, feat_key: Optional[str] = None,
+    def __init__(self, observation_space: gym.spaces.Dict, pc_key: str, feat_key: Optional[str] = None, use_bn=True,
                  local_channels=(64, 128, 256), global_channels=(256,), one_hot_dim=0):
         if feat_key is not None:
             if feat_key not in list(observation_space.keys()):
@@ -349,7 +349,8 @@ class PointNetExtractor(BaseFeaturesExtractor):
         super().__init__(observation_space, features_dim)
 
         n_input_channels = pc_dim + feat_dim + one_hot_dim
-        self.point_net = PointNet(n_input_channels, local_channels=local_channels, global_channels=global_channels)
+        self.point_net = PointNet(n_input_channels, local_channels=local_channels, global_channels=global_channels,
+                                  use_bn=use_bn)
         self.n_input_channels = n_input_channels
         self.n_output_channels = self.point_net.out_channels
 
@@ -363,7 +364,7 @@ class PointNetExtractor(BaseFeaturesExtractor):
 
 
 class PointNetImaginationExtractor(PointNetExtractor):
-    def __init__(self, observation_space: gym.spaces.Dict, pc_key: str,
+    def __init__(self, observation_space: gym.spaces.Dict, pc_key: str, use_bn=True,
                  local_channels=(64, 128, 256), global_channels=(256,), imagination_keys=("imagination_robot",)):
         self.imagination_key = imagination_keys
         self.imagination_one_hot = []
@@ -372,7 +373,7 @@ class PointNetImaginationExtractor(PointNetExtractor):
         else:
             one_hot_dim = 0  # Vanilla PointNet
 
-        super().__init__(observation_space, pc_key, None, local_channels=local_channels,
+        super().__init__(observation_space, pc_key, None, use_bn=use_bn, local_channels=local_channels,
                          global_channels=global_channels, one_hot_dim=one_hot_dim)
 
         # One hot vector for imagination
@@ -414,40 +415,3 @@ class PointNetImaginationExtractor(PointNetExtractor):
             feats = None
 
         return self.point_net(points, feats)["feature"]
-
-
-class PointNetCombinedExtractor(BaseFeaturesExtractor):
-    """
-    Combined feature extractor for Dict observation spaces.
-    Builds a feature extractor for each key of the space. Input from each space
-    is fed through a separate submodule (CNN or MLP, depending on input shape),
-    the output features are concatenated and fed through additional MLP network ("combined").
-
-    :param observation_space:
-    """
-
-    def __init__(self, observation_space: gym.spaces.Dict, point_net_output_dim: int = 256):
-        super().__init__(observation_space, features_dim=1)
-
-        extractors = {}
-        total_concat_size = 0
-        for key, subspace in observation_space.spaces.items():
-            if isinstance(subspace, gym.spaces.Box) and len(subspace.shape) == 3:
-                extractors[key] = PointNetExtractor(subspace, features_dim=point_net_output_dim)
-                total_concat_size += point_net_output_dim
-            else:
-                # The observation key is a vector, flatten it if needed
-                extractors[key] = nn.Flatten()
-                total_concat_size += get_flattened_obs_dim(subspace)
-
-        self.extractors = nn.ModuleDict(extractors)
-
-        # Update the features dim manually
-        self._features_dim = total_concat_size
-
-    def forward(self, observations: TensorDict) -> th.Tensor:
-        encoded_tensor_list = []
-
-        for key, extractor in self.extractors.items():
-            encoded_tensor_list.append(extractor(observations[key]))
-        return th.cat(encoded_tensor_list, dim=1)

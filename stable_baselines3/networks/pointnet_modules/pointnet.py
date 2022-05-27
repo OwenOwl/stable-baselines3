@@ -19,14 +19,20 @@ class PointNet(nn.Module):
             in_channels=3,
             local_channels=(64, 64, 64, 128, 1024),
             global_channels=(512, 256),
+            use_bn=True,
     ):
         super().__init__()
 
         self.in_channels = in_channels
         self.out_channels = (local_channels + global_channels)[-1]
+        self.use_bn = use_bn
 
-        self.mlp_local = mlp1d_bn_relu(in_channels, local_channels)
-        self.mlp_global = mlp_bn_relu(local_channels[-1], global_channels)
+        if use_bn:
+            self.mlp_local = mlp1d_bn_relu(in_channels, local_channels)
+            self.mlp_global = mlp_bn_relu(local_channels[-1], global_channels)
+        else:
+            self.mlp_local = mlp1d_relu(in_channels, local_channels)
+            self.mlp_global = mlp_relu(local_channels[-1], global_channels)
 
         self.reset_parameters()
 

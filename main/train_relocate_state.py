@@ -67,7 +67,7 @@ if __name__ == '__main__':
                 learning_rate=args.lr,
                 batch_size=args.bs,
                 seed=args.seed,
-                target_kl=0.01,
+                target_kl=0.02,
                 policy_kwargs={'activation_fn': nn.ReLU},
                 tensorboard_log=str(result_path / "log")
                 )

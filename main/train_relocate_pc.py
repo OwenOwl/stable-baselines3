@@ -34,10 +34,11 @@ if __name__ == '__main__':
     parser.add_argument('--iter', type=int, default=2000)
     parser.add_argument('--exp', type=str)
     parser.add_argument('--object_name', type=str)
+    parser.add_argument('--use_bn', type=bool, default=True)
 
     args = parser.parse_args()
     object_name = args.object_name
-    exp_keywords = ["ppo", object_name, args.exp, str(args.seed)]
+    exp_keywords = ["ppo_pc", object_name, args.exp, str(args.seed)]
     env_iter = args.iter * 500 * args.n
 
     config = {
@@ -45,6 +46,7 @@ if __name__ == '__main__':
         'object_name': args.object_name,
         'update_iteration': args.iter,
         'total_step': env_iter,
+        "use_bn": args.use_bn,
     }
 
     exp_name = "-".join(exp_keywords)
@@ -66,9 +68,9 @@ if __name__ == '__main__':
     feature_extractor_class = PointNetExtractor
     feature_extractor_kwargs = {
         "pc_key": "relocate-point_cloud",
-        # "feat_key": "relocate-point_cloud_feature",
         "local_channels": (64, 128, 256),
         "global_channels": (256,),
+        "use_bn": args.use_bn,
     }
     policy_kwargs = {
         "features_extractor_class": feature_extractor_class,
@@ -87,7 +89,7 @@ if __name__ == '__main__':
                 tensorboard_log=str(result_path / "log"),
                 min_lr=1e-4,
                 max_lr=args.lr,
-                target_kl=0.1,
+                target_kl=0.02,
                 )
 
     model.learn(
