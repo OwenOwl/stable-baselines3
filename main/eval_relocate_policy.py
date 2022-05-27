@@ -1,15 +1,24 @@
 import numpy as np
 
 from hand_env_utils.teleop_env import create_relocate_env
+from hand_teleop.real_world.task_setting import IMG_CONFIG
 from stable_baselines3.dapg import DAPG
 from stable_baselines3.ppo import PPO
 
 if __name__ == '__main__':
-    checkpoint_path = "results/ppo-mustard_bottle-pc_bs_1000-100/model/model_254.zip"
+    checkpoint_path = "results/ppo-mustard_bottle-pc_3e4_bs_1000-100/model/model_500.zip"
+    img_type = None  # "robot", "goal_robot", "goal"
     use_visual_obs = True
     object_name = checkpoint_path.split("/")[1].split("-")[1]
     algorithm_name = checkpoint_path.split("/")[1].split("-")[0]
-    env = create_relocate_env(object_name, use_visual_obs=False, use_gui=True)
+    env = create_relocate_env(object_name, use_visual_obs=use_visual_obs, use_gui=True)
+
+    if img_type == "robot":
+        env.setup_imagination_config(IMG_CONFIG["relocate_robot"])
+    elif img_type == "goal":
+        env.setup_imagination_config(IMG_CONFIG["relocate_goal"])
+    elif img_type == "goal_robot":
+        env.setup_imagination_config(IMG_CONFIG["relocate_goal_robot"])
 
     device = "cuda:0"
     if algorithm_name == "ppo":

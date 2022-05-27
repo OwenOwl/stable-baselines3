@@ -40,7 +40,7 @@ if __name__ == '__main__':
                         default='all',
                         const='all',
                         nargs='?',
-                        choices=['robot', 'robot_goal', 'goal'], )
+                        choices=['robot', 'goal_robot', 'goal'], )
 
     args = parser.parse_args()
     object_name = args.object_name
