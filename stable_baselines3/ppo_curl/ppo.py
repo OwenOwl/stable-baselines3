@@ -285,8 +285,13 @@ class PPO(OnPolicyAlgorithm):
         self.target_features_extractor = features_extractor_class(self.observation_space,
                                                                   **self.policy_kwargs["features_extractor_kwargs"]).to(self.device)
         self.features_dim = self.policy.features_extractor.features_dim
+
         self.CURL = CURL(self.features_dim, self.batch_size,
                          self.policy.features_extractor, self.target_features_extractor).to(self.device)
+
+        self.target_features_extractor.load_state_dict(self.policy.features_extractor.state_dict())
+
+        self.curl_optimizer = th.optim.Adam(self.CURL.parameters(), lr=self.learning_rate)
 
 
     def train(self) -> None:
@@ -384,14 +389,19 @@ class PPO(OnPolicyAlgorithm):
                     break
 
                 lr = self.kl_scheduler.update(approx_kl_div)
+
                 update_learning_rate(self.policy.optimizer, lr)
+                update_learning_rate(self.curl_optimizer, lr)
 
                 # Optimization step
+                self.curl_optimizer.zero_grad()
                 self.policy.optimizer.zero_grad()
                 loss.backward()
+
                 # Clip grad norm
                 th.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
                 self.policy.optimizer.step()
+                self.curl_optimizer.step()
 
                 # Representation Learning: Update the target encoder.
                 soft_update_params(

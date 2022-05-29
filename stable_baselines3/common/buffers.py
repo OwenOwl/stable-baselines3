@@ -989,12 +989,19 @@ class DictSSLRolloutBuffer(RolloutBuffer):
 
             return result
 
+        def get_next_action(actions, ind, i):
+            future_batch_inds = np.clip(ind + i, 0, len(actions) - 1)
+            return self.to_torch(actions[future_batch_inds])
+
+
         next_observations = [get_next_obs(self.observations, batch_inds, i) for i in range(4)]
+        next_actions = [get_next_action(self.actions, batch_inds, i) for i in range(4)]
 
         return DictSSLRolloutBufferSamples(
             observations={key: self.to_torch(obs[batch_inds]) for (key, obs) in self.observations.items()},
             next_observations=next_observations,
             actions=self.to_torch(self.actions[batch_inds]),
+            next_actions=next_actions,
             old_values=self.to_torch(self.values[batch_inds].flatten()),
             old_log_prob=self.to_torch(self.log_probs[batch_inds].flatten()),
             advantages=self.to_torch(self.advantages[batch_inds].flatten()),

@@ -3,9 +3,11 @@ from typing import Any, Dict, Optional, Type, Union, List
 
 import numpy as np
 import torch as th
+import torch.nn as nn
 from gym import spaces
 from torch.nn import functional as F
-
+from stable_baselines3.common.preprocessing import get_action_dim
+from stable_baselines3.common.torch_layers import *
 from stable_baselines3.common.buffers import DictSSLRolloutBuffer, RolloutBuffer
 from stable_baselines3.common.on_policy_algorithm import OnPolicyAlgorithm
 from stable_baselines3.common.policies import ActorCriticCnnPolicy, ActorCriticPolicy, BasePolicy, \
@@ -37,49 +39,51 @@ class AdaptiveScheduler:
         return lr
 
 
-class CURL(nn.Module):
-    """
-    CURL
-    """
-
-    def __init__(self, z_dim, batch_size, encoder, encoder_target, output_type="continuous"):
-        super(CURL, self).__init__()
-        self.batch_size = batch_size
+class SPR(nn.Module):
+    def __init__(self, z_dim, a_dim, encoder, encoder_target, tau=0.005):
+        super(SPR, self).__init__()
+        self.dynamics = nn.Sequential(*create_mlp(input_dim=z_dim + a_dim,
+                                   output_dim=z_dim,
+                                   net_arch=[256, 256]))
 
         self.encoder = encoder
         self.encoder_target = encoder_target
 
-        self.W = nn.Parameter(torch.rand(z_dim, z_dim))
-        self.output_type = output_type
+        self.projection = nn.Sequential(*create_mlp(input_dim=z_dim, output_dim=z_dim, net_arch=[256]))
+        self.projection_target = nn.Sequential(*create_mlp(input_dim=z_dim, output_dim=z_dim, net_arch=[256]))
+        self.prediction = nn.Sequential(*create_mlp(input_dim=z_dim, output_dim=z_dim, net_arch=[]))
 
-    def encode(self, x, detach=False, ema=False):
-        """
-        Encoder: z_t = e(x_t)
-        :param x: x_t, x y coordinates
-        :return: z_t, value in r2
-        """
-        if ema:
-            with torch.no_grad():
-                z_out = self.encoder_target(x)
-        else:
-            z_out = self.encoder(x)
+        self.z_dim = z_dim
+        self.a_dim = a_dim
 
-        if detach:
-            z_out = z_out.detach()
-        return z_out
+        self.tau = tau
 
-    def compute_logits(self, z_a, z_pos):
-        """
-        Uses logits trick for CURL:
-        - compute (B,B) matrix z_a (W z_pos.T)
-        - positives are all diagonal elements
-        - negatives are all other elements
-        - to compute loss use multiclass cross entropy with identity matrix for labels
-        """
-        Wz = torch.matmul(self.W, z_pos.T)  # (z_dim,B)
-        logits = torch.matmul(z_a, Wz)  # (B,B)
-        logits = logits - torch.max(logits, 1)[0][:, None]
-        return logits
+    def get_spr_loss(self, obs, actions, obs_target):
+        # Encode
+        z = self.encoder(obs)
+        z_target = self.encoder_target(obs_target)
+
+        # Forward Prediction
+        for action in actions:
+            z = self.dynamics(th.cat((z, action), dim=-1))
+
+        # Projection
+        proj = self.projection(z)
+        proj = self.prediction(proj)
+        proj_target = self.projection_target(z_target).detach()
+
+        # Normalize
+        proj = F.normalize(proj, p=2., dim=-1, eps=1e-5)
+        proj_target = F.normalize(proj_target, p=2., dim=-1, eps=1e-5)
+
+        # Loss
+        loss = -(proj * proj_target).sum()
+
+        return loss
+
+    def update_param(self):
+        soft_update_params(self.encoder, self.encoder_target, self.tau)
+        soft_update_params(self.projection, self.projection_target, self.tau)
 
 
 class PPO(OnPolicyAlgorithm):
@@ -280,11 +284,14 @@ class PPO(OnPolicyAlgorithm):
         # Setup the target encoder.
         features_extractor_class = self.policy_kwargs["features_extractor_class"]
         self.target_features_extractor = features_extractor_class(self.observation_space,
-                                                                  **self.policy_kwargs["features_extractor_kwargs"])
-        self.features_dim = self.features_extractor.features_dim
-        self.CURL = CURL(self.features_dim, self.batch_size,
-                         self.policy.feature_extractor, self.target_features_extractor)
+                                                                  **self.policy_kwargs["features_extractor_kwargs"]).to(self.device)
 
+        self.features_dim = self.policy.features_extractor.features_dim
+
+        self.SPR = SPR(self.features_dim, get_action_dim(self.action_space),
+                       self.policy.features_extractor, self.target_features_extractor, tau=self.encoder_tau).to(self.device)
+
+        self.spr_optimizer = th.optim.Adam(self.SPR.parameters(), lr=self.learning_rate)
 
     def train(self) -> None:
         """
@@ -354,8 +361,11 @@ class PPO(OnPolicyAlgorithm):
 
                 # Representation learning: CURL loss. Here we only use the next observation as the positive pair.
                 # Moreover, we can consider adding data augmentation.
-                curl_loss = self.get_curl_loss(rollout_data.observations, rollout_data.next_observations[1])
-                rep_losses.append(curl_loss.item())
+                spr_loss = self.SPR.get_spr_loss(rollout_data.observations,
+                                                 rollout_data.next_actions[0:3],
+                                                 rollout_data.next_observations[3])
+
+                rep_losses.append(spr_loss.item())
 
                 # Entropy loss favor exploration
                 if entropy is None:
@@ -366,7 +376,7 @@ class PPO(OnPolicyAlgorithm):
 
                 entropy_losses.append(entropy_loss.item())
 
-                loss = policy_loss + self.ent_coef * entropy_loss + self.vf_coef * value_loss + self.rep_coef * curl_loss
+                loss = policy_loss + self.ent_coef * entropy_loss + self.vf_coef * value_loss + self.rep_coef * spr_loss
 
                 # Calculate approximate form of reverse KL Divergence for early stopping
                 # see issue #417: https://github.com/DLR-RM/stable-baselines3/issues/417
@@ -381,20 +391,21 @@ class PPO(OnPolicyAlgorithm):
                     break
 
                 lr = self.kl_scheduler.update(approx_kl_div)
+
                 update_learning_rate(self.policy.optimizer, lr)
+                update_learning_rate(self.spr_optimizer, lr)
 
                 # Optimization step
+                self.spr_optimizer.zero_grad()
                 self.policy.optimizer.zero_grad()
                 loss.backward()
                 # Clip grad norm
                 th.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
                 self.policy.optimizer.step()
+                self.spr_optimizer.step()
 
                 # Representation Learning: Update the target encoder.
-                soft_update_params(
-                    self.policy.feature_extractor, self.target_features_extractor,
-                    self.encoder_tau
-                )
+                self.SPR.update_param()
 
         self._n_updates += self.n_epochs
         explained_var = explained_variance(self.rollout_buffer.values.flatten(), self.rollout_buffer.returns.flatten())
@@ -415,16 +426,6 @@ class PPO(OnPolicyAlgorithm):
         self.logger.record("train/clip_range", clip_range)
         if self.clip_range_vf is not None:
             self.logger.record("train/clip_range_vf", clip_range_vf)
-
-    def get_curl_loss(self, obs_anchor, obs_pos):
-        z_a = self.CURL.encode(obs_anchor)
-        z_pos = self.CURL.encode(obs_pos, ema=True)
-        logits = self.CURL.compute_logits(z_a, z_pos)
-
-        labels = torch.arange(logits.shape[0]).long().to(self.device)
-        cross_entropy_loss = nn.CrossEntropyLoss()
-        loss = cross_entropy_loss(logits, labels)
-        return loss
 
     def learn(
             self,
