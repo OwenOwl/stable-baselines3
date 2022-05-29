@@ -983,7 +983,7 @@ class DictSSLRolloutBuffer(RolloutBuffer):
         def get_next_obs(obs, ind, i):
             result = {}
             for key, obs in obs.items():
-                future_batch_inds = np.clip(ind + i, 0, len(obs))
+                future_batch_inds = np.clip(ind + i, 0, len(obs)-1)
                 next_obs = self.to_torch(obs[future_batch_inds])
                 result[key] = next_obs
 
