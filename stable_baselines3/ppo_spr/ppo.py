@@ -18,9 +18,6 @@ def soft_update_params(net, target_net, tau):
         target_param.data.copy_(
             tau * param.data + (1 - tau) * target_param.data
         )
-import gym
-
-import torch.nn as nn
 
 class AdaptiveScheduler:
     def __init__(self, kl_threshold, min_lr, max_lr, init_lr):
@@ -52,7 +49,7 @@ class CURL(nn.Module):
         self.encoder = encoder
         self.encoder_target = encoder_target
 
-        self.W = nn.Parameter(th.rand(z_dim, z_dim))
+        self.W = nn.Parameter(torch.rand(z_dim, z_dim))
         self.output_type = output_type
 
     def encode(self, x, detach=False, ema=False):
@@ -62,7 +59,7 @@ class CURL(nn.Module):
         :return: z_t, value in r2
         """
         if ema:
-            with th.no_grad():
+            with torch.no_grad():
                 z_out = self.encoder_target(x)
         else:
             z_out = self.encoder(x)
@@ -79,9 +76,9 @@ class CURL(nn.Module):
         - negatives are all other elements
         - to compute loss use multiclass cross entropy with identity matrix for labels
         """
-        Wz = th.matmul(self.W, z_pos.T)  # (z_dim,B)
-        logits = th.matmul(z_a, Wz)  # (B,B)
-        logits = logits - th.max(logits, 1)[0][:, None]
+        Wz = torch.matmul(self.W, z_pos.T)  # (z_dim,B)
+        logits = torch.matmul(z_a, Wz)  # (B,B)
+        logits = logits - torch.max(logits, 1)[0][:, None]
         return logits
 
 
@@ -283,10 +280,10 @@ class PPO(OnPolicyAlgorithm):
         # Setup the target encoder.
         features_extractor_class = self.policy_kwargs["features_extractor_class"]
         self.target_features_extractor = features_extractor_class(self.observation_space,
-                                                                  **self.policy_kwargs["features_extractor_kwargs"]).to(self.device)
-        self.features_dim = self.policy.features_extractor.features_dim
+                                                                  **self.policy_kwargs["features_extractor_kwargs"])
+        self.features_dim = self.features_extractor.features_dim
         self.CURL = CURL(self.features_dim, self.batch_size,
-                         self.policy.features_extractor, self.target_features_extractor).to(self.device)
+                         self.policy.feature_extractor, self.target_features_extractor)
 
 
     def train(self) -> None:
@@ -395,7 +392,7 @@ class PPO(OnPolicyAlgorithm):
 
                 # Representation Learning: Update the target encoder.
                 soft_update_params(
-                    self.policy.features_extractor, self.target_features_extractor,
+                    self.policy.feature_extractor, self.target_features_extractor,
                     self.encoder_tau
                 )
 
@@ -424,7 +421,7 @@ class PPO(OnPolicyAlgorithm):
         z_pos = self.CURL.encode(obs_pos, ema=True)
         logits = self.CURL.compute_logits(z_a, z_pos)
 
-        labels = th.arange(logits.shape[0]).long().to(self.device)
+        labels = torch.arange(logits.shape[0]).long().to(self.device)
         cross_entropy_loss = nn.CrossEntropyLoss()
         loss = cross_entropy_loss(logits, labels)
         return loss
