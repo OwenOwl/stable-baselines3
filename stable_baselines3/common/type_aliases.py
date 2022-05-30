@@ -39,6 +39,17 @@ class DictRolloutBufferSamples(RolloutBufferSamples):
     returns: th.Tensor
 
 
+class DictSSLRolloutBufferSamples(NamedTuple):
+    observations: TensorDict
+    next_observations: List[TensorDict]
+    actions: th.Tensor
+    next_actions: List[th.Tensor]
+    old_values: th.Tensor
+    old_log_prob: th.Tensor
+    advantages: th.Tensor
+    returns: th.Tensor
+
+
 class ReplayBufferSamples(NamedTuple):
     observations: th.Tensor
     actions: th.Tensor
