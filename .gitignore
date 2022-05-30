@@ -50,3 +50,4 @@ MUJOCO_LOG.TXT
 
 # Custom
 /results/
+/eval_checkpoint/

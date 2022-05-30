@@ -6,24 +6,33 @@ from stable_baselines3.dapg import DAPG
 from stable_baselines3.ppo import PPO
 
 if __name__ == '__main__':
-    checkpoint_path = "results/ppo-mustard_bottle-pc_3e4_bs_1000-100/model/model_500.zip"
-    img_type = None  # "robot", "goal_robot", "goal"
+    checkpoint_path = "eval_checkpoint/imagination/ppo_imagination-goal_robot-mustard_bottle-normal_pn-100/model/model_900.zip"
     use_visual_obs = True
-    object_name = checkpoint_path.split("/")[1].split("-")[1]
-    algorithm_name = checkpoint_path.split("/")[1].split("-")[0]
+    if "imagination" not in checkpoint_path:
+        object_name = checkpoint_path.split("/")[-3].split("-")[1]
+    else:
+        object_name = checkpoint_path.split("/")[-3].split("-")[2]
+
+    algorithm_name = checkpoint_path.split("/")[-3].split("-")[0]
     env = create_relocate_env(object_name, use_visual_obs=use_visual_obs, use_gui=True)
 
-    if img_type == "robot":
-        env.setup_imagination_config(IMG_CONFIG["relocate_robot"])
-    elif img_type == "goal":
-        env.setup_imagination_config(IMG_CONFIG["relocate_goal"])
-    elif img_type == "goal_robot":
-        env.setup_imagination_config(IMG_CONFIG["relocate_goal_robot"])
+    if use_visual_obs:
+        if "imagination-goal_robot" in checkpoint_path:
+            img_type = "goal_robot"
+            env.setup_imagination_config(IMG_CONFIG["relocate_goal_robot"])
+        elif "imagination-goal" in checkpoint_path:
+            img_type = "goal"
+            env.setup_imagination_config(IMG_CONFIG["relocate_goal"])
+        elif "imagination-robot" in checkpoint_path:
+            img_type = "robot"
+            env.setup_imagination_config(IMG_CONFIG["relocate_robot"])
+        else:
+            img_type = None
 
     device = "cuda:0"
-    if algorithm_name == "ppo":
+    if "ppo" in algorithm_name:
         policy = PPO.load(checkpoint_path, env, device)
-    elif algorithm_name == "dapg":
+    elif "dapg" in algorithm_name:
         policy = DAPG.load(checkpoint_path, env, device)
     else:
         raise NotImplementedError

@@ -41,19 +41,9 @@ if __name__ == '__main__':
     exp_keywords = ["ppo_pc", object_name, args.exp, str(args.seed)]
     env_iter = args.iter * 500 * args.n
 
-    config = {
-        'n_env_horizon': args.n,
-        'object_name': args.object_name,
-        'update_iteration': args.iter,
-        'total_step': env_iter,
-        "use_bn": args.use_bn,
-    }
-
     exp_name = "-".join(exp_keywords)
     result_path = Path("./results") / exp_name
     result_path.mkdir(exist_ok=True, parents=True)
-
-    wandb_run = setup_wandb(config, exp_name)
 
 
     def create_env_fn():
@@ -69,7 +59,7 @@ if __name__ == '__main__':
     feature_extractor_kwargs = {
         "pc_key": "relocate-point_cloud",
         "local_channels": (64, 128, 256),
-        "global_channels": (256,),
+        "global_channels": (256, ),
         "use_bn": args.use_bn,
     }
     policy_kwargs = {
@@ -78,6 +68,10 @@ if __name__ == '__main__':
         "net_arch": [dict(pi=[64, 64], vf=[64, 64])],
         "activation_fn": nn.Tanh,
     }
+
+    config = {'n_env_horizon': args.n, 'object_name': args.object_name, 'update_iteration': args.iter,
+              'total_step': env_iter, "use_bn": args.use_bn, "policy_kwargs": policy_kwargs}
+    wandb_run = setup_wandb(config, exp_name)
 
     model = PPO("PointCloudPolicy", env, verbose=1,
                 n_epochs=args.ep,
@@ -89,13 +83,14 @@ if __name__ == '__main__':
                 tensorboard_log=str(result_path / "log"),
                 min_lr=1e-4,
                 max_lr=args.lr,
-                target_kl=0.02,
+                adaptive_kl=0.02,
+                target_kl=0.1,
                 )
 
     model.learn(
         total_timesteps=int(env_iter),
         callback=WandbCallback(
-            model_save_freq=10,
+            model_save_freq=50,
             model_save_path=str(result_path / "model"),
         ),
     )

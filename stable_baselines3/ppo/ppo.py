@@ -117,6 +117,7 @@ class PPO(OnPolicyAlgorithm):
             seed: Optional[int] = None,
             device: Union[th.device, str] = "auto",
             _init_setup_model: bool = True,
+            adaptive_kl: float = 0.02,
             min_lr=1e-4,
             max_lr=1e-3,
     ):
@@ -179,7 +180,7 @@ class PPO(OnPolicyAlgorithm):
         self.clip_range_vf = clip_range_vf
         self.normalize_advantage = normalize_advantage
         self.target_kl = target_kl
-        self.kl_scheduler = AdaptiveScheduler(kl_threshold=target_kl, min_lr=min_lr, max_lr=max_lr,
+        self.kl_scheduler = AdaptiveScheduler(kl_threshold=adaptive_kl, min_lr=min_lr, max_lr=max_lr,
                                               init_lr=learning_rate)
 
         if _init_setup_model:
@@ -213,6 +214,8 @@ class PPO(OnPolicyAlgorithm):
         entropy_losses = []
         pg_losses, value_losses = [], []
         clip_fractions = []
+
+        continue_training = True
 
         # train for n_epochs epochs
         for epoch in range(self.n_epochs):
@@ -281,7 +284,10 @@ class PPO(OnPolicyAlgorithm):
                     approx_kl_div = th.mean((th.exp(log_ratio) - 1) - log_ratio).cpu().numpy()
                     approx_kl_divs.append(approx_kl_div)
 
-                if approx_kl_div > 1:
+                if self.target_kl is not None and approx_kl_div > 1.5 * self.target_kl:
+                    continue_training = False
+                    if self.verbose >= 1:
+                        print(f"Early stopping at step {epoch} due to reaching max kl: {approx_kl_div:.2f}")
                     break
 
                 lr = self.kl_scheduler.update(approx_kl_div)
@@ -293,6 +299,9 @@ class PPO(OnPolicyAlgorithm):
                 # Clip grad norm
                 th.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
                 self.policy.optimizer.step()
+
+            if not continue_training:
+                break
 
         self._n_updates += self.n_epochs
         explained_var = explained_variance(self.rollout_buffer.values.flatten(), self.rollout_buffer.returns.flatten())
