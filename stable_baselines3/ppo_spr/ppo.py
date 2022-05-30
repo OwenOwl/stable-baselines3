@@ -77,7 +77,7 @@ class SPR(nn.Module):
         proj_target = F.normalize(proj_target, p=2., dim=-1, eps=1e-5)
 
         # Loss
-        loss = -(proj * proj_target).sum()
+        loss = -(proj * proj_target).sum(dim=-1).mean()
 
         return loss
 

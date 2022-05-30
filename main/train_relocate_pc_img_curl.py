@@ -36,6 +36,7 @@ if __name__ == '__main__':
     parser.add_argument('--exp', type=str)
     parser.add_argument('--object_name', type=str)
     parser.add_argument('--use_bn', type=bool, default=True)
+    parser.add_argument('--rep', type=float, default=1.0)
     parser.add_argument('--img_type',
                         default='all',
                         const='all',
@@ -104,6 +105,7 @@ if __name__ == '__main__':
                 min_lr=1e-4,
                 max_lr=args.lr,
                 target_kl=0.02,
+                rep_coef=args.rep
                 )
 
     model.learn(

@@ -1,5 +1,5 @@
 from pathlib import Path
-
+import os
 import torch.nn as nn
 import wandb
 
@@ -45,7 +45,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     object_name = args.object_name
-    exp_keywords = ["ppo_spr_imagination", args.img_type, object_name, args.exp, str(args.seed)]
+    exp_keywords = [args.img_type, object_name, args.exp, str(args.seed)]
     env_iter = args.iter * 500 * args.n
 
     config = {
@@ -57,7 +57,7 @@ if __name__ == '__main__':
         'img_type': args.img_type,
     }
 
-    exp_name = "-".join(exp_keywords)
+    exp_name = os.path.basename(__file__)[:-3] + "-" + "-".join(exp_keywords)
     result_path = Path("./results") / exp_name
     result_path.mkdir(exist_ok=True, parents=True)
 
@@ -90,8 +90,8 @@ if __name__ == '__main__':
     policy_kwargs = {
         "features_extractor_class": feature_extractor_class,
         "features_extractor_kwargs": feature_extractor_kwargs,
-        "net_arch": [dict(pi=[64, 64], vf=[64, 64])],
-        "activation_fn": nn.Tanh,
+        "net_arch": [dict(pi=[128, 128], vf=[128, 128])],
+        "activation_fn": nn.ReLU,
     }
 
     model = PPO("PointCloudPolicy", env, verbose=1,
