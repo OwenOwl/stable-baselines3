@@ -86,3 +86,16 @@ class WandbCallback(BaseCallback):
         :return: If the callback returns False, training is aborted early.
         """
         return True
+
+
+def setup_wandb(parser_config, exp_name, tags=None):
+    run = wandb.init(
+        project="hand_teleop_ppo",
+        name=exp_name,
+        config=parser_config,
+        monitor_gym=True,
+        sync_tensorboard=True,  # auto-upload sb3's tensorboard metrics
+        save_code=True,  # optional
+        tags=tags,
+    )
+    return run

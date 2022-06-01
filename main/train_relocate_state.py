@@ -1,36 +1,22 @@
 from pathlib import Path
 
 import torch.nn as nn
-import wandb
 
 from hand_env_utils.arg_utils import *
 from hand_env_utils.teleop_env import create_relocate_env
-from hand_env_utils.wandb_callback import WandbCallback
+from hand_env_utils.wandb_callback import WandbCallback, setup_wandb
 from stable_baselines3.common.vec_env.subproc_vec_env import SubprocVecEnv
 from stable_baselines3.ppo import PPO
-
-
-def setup_wandb(parser_config, exp_name):
-    run = wandb.init(
-        project="hand_teleop_ppo",
-        name=exp_name,
-        config=parser_config,
-        monitor_gym=True,
-        sync_tensorboard=True,  # auto-upload sb3's tensorboard metrics
-        save_code=True,  # optional
-    )
-    return run
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--n', type=int, default=100)
     parser.add_argument('--workers', type=int, default=10)
-    parser.add_argument('--lr', type=float, default=1e-3)
-    parser.add_argument('--ep', type=int, default=10)
+    parser.add_argument('--lr', type=float, default=3e-4)
+    parser.add_argument('--ep', type=int, default=20)
     parser.add_argument('--bs', type=int, default=5000)
     parser.add_argument('--seed', type=int, default=100)
-    parser.add_argument('--iter', type=int, default=2000)
+    parser.add_argument('--iter', type=int, default=1000)
     parser.add_argument('--exp', type=str)
     parser.add_argument('--object_name', type=str)
 
@@ -49,7 +35,7 @@ if __name__ == '__main__':
     exp_name = "-".join(exp_keywords)
     result_path = Path("./results") / exp_name
     result_path.mkdir(exist_ok=True, parents=True)
-    wandb_run = setup_wandb(config, exp_name)
+    wandb_run = setup_wandb(config, exp_name, tags=["state", "relocate", object_name])
 
 
     def create_env_fn():
@@ -67,16 +53,17 @@ if __name__ == '__main__':
                 learning_rate=args.lr,
                 batch_size=args.bs,
                 seed=args.seed,
-                adaptive_kl=0.02,
-                target_kl=0.1,
                 policy_kwargs={'activation_fn': nn.ReLU},
-                tensorboard_log=str(result_path / "log")
+                tensorboard_log=str(result_path / "log"),
+                min_lr=args.lr,
+                max_lr=args.lr,
+                adaptive_kl=0.02,
+                target_kl=0.2,
                 )
 
     model.learn(
         total_timesteps=int(env_iter),
         callback=WandbCallback(
-            gradient_save_freq=50,
             model_save_freq=50,
             model_save_path=str(result_path / "model"),
         ),

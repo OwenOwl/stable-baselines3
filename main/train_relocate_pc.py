@@ -1,27 +1,13 @@
 from pathlib import Path
 
 import torch.nn as nn
-import wandb
 
 from hand_env_utils.arg_utils import *
 from hand_env_utils.teleop_env import create_relocate_env
-from hand_env_utils.wandb_callback import WandbCallback
+from hand_env_utils.wandb_callback import WandbCallback, setup_wandb
 from stable_baselines3.common.torch_layers import PointNetExtractor
 from stable_baselines3.common.vec_env.subproc_vec_env import SubprocVecEnv
 from stable_baselines3.ppo import PPO
-
-
-def setup_wandb(parser_config, exp_name):
-    run = wandb.init(
-        project="hand_teleop_ppo",
-        name=exp_name,
-        config=parser_config,
-        monitor_gym=True,
-        sync_tensorboard=True,  # auto-upload sb3's tensorboard metrics
-        save_code=True,  # optional
-    )
-    return run
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -31,7 +17,7 @@ if __name__ == '__main__':
     parser.add_argument('--ep', type=int, default=5)
     parser.add_argument('--bs', type=int, default=1000)
     parser.add_argument('--seed', type=int, default=100)
-    parser.add_argument('--iter', type=int, default=2000)
+    parser.add_argument('--iter', type=int, default=1000)
     parser.add_argument('--exp', type=str)
     parser.add_argument('--object_name', type=str)
     parser.add_argument('--use_bn', type=bool, default=True)
@@ -59,19 +45,19 @@ if __name__ == '__main__':
     feature_extractor_kwargs = {
         "pc_key": "relocate-point_cloud",
         "local_channels": (64, 128, 256),
-        "global_channels": (256, ),
+        "global_channels": (256,),
         "use_bn": args.use_bn,
     }
     policy_kwargs = {
         "features_extractor_class": feature_extractor_class,
         "features_extractor_kwargs": feature_extractor_kwargs,
         "net_arch": [dict(pi=[64, 64], vf=[64, 64])],
-        "activation_fn": nn.Tanh,
+        "activation_fn": nn.ReLU,
     }
 
     config = {'n_env_horizon': args.n, 'object_name': args.object_name, 'update_iteration': args.iter,
               'total_step': env_iter, "use_bn": args.use_bn, "policy_kwargs": policy_kwargs}
-    wandb_run = setup_wandb(config, exp_name)
+    wandb_run = setup_wandb(config, exp_name, tags=["point_cloud", "relocate", object_name])
 
     model = PPO("PointCloudPolicy", env, verbose=1,
                 n_epochs=args.ep,

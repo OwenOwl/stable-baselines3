@@ -159,7 +159,6 @@ class OnPolicyAlgorithm(BaseAlgorithm):
             self.policy.reset_noise(env.num_envs)
 
         callback.on_rollout_start()
-        env.seed()
 
         while n_steps < n_rollout_steps:
             if self.use_sde and self.sde_sample_freq > 0 and n_steps % self.sde_sample_freq == 0:
