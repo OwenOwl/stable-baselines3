@@ -1,9 +1,12 @@
 import logging
 import os
+from typing import Optional, Callable, List
 
+import numpy as np
 import wandb
 from wandb.sdk.lib import telemetry as wb_telemetry
 
+from hand_teleop.utils.camera_utils import fetch_texture, generate_imagination_pc_from_obs
 from stable_baselines3.common.callbacks import BaseCallback
 
 logger = logging.getLogger(__name__)
@@ -27,7 +30,11 @@ class WandbCallback(BaseCallback):
             self,
             verbose: int = 0,
             model_save_path: str = None,
-            model_save_freq: int = 0,
+            model_save_freq: int = 100,
+            eval_freq: Optional[int] = None,
+            eval_env_fn: Optional[Callable] = None,
+            eval_cam_names: Optional[List[str]] = None,
+            viz_point_cloud=True,
             gradient_save_freq: int = 0,
     ):
         super().__init__(verbose)
@@ -37,6 +44,12 @@ class WandbCallback(BaseCallback):
             tel.feature.sb3 = True
         self.model_save_freq = model_save_freq
         self.model_save_path = model_save_path
+
+        self.eval_freq = eval_freq
+        self.eval_env_fn = eval_env_fn
+        self.eval_cam_names = eval_cam_names
+        self.viz_point_cloud = viz_point_cloud
+
         self.gradient_save_freq = gradient_save_freq
         # Create folder if needed
         if self.model_save_path is not None:
@@ -69,6 +82,34 @@ class WandbCallback(BaseCallback):
             if self.model_save_path is not None:
                 if self.roll_out % self.model_save_freq == 0:
                     self.save_model()
+
+        if self.eval_freq is not None and self.eval_env_fn is not None:
+            env = self.eval_env_fn()
+            reward_sum = 0
+            obs = env.reset()
+            img_dict = {key: [] for key in self.eval_cam_names}
+            for i in range(env.horizon):
+                action = self.model.policy.predict(observation=obs, deterministic=True)[0]
+                obs, reward, done, _ = env.step(action)
+                env.scene.update_render()
+                for cam_name in self.eval_cam_names:
+                    cam = env.cameras[cam_name]
+                    cam.take_picture()
+                    img_dict[cam_name].append(fetch_texture(cam, "Color", return_torch=False))
+
+                reward_sum += reward
+
+            if self.viz_point_cloud:
+                points, colors, cats = generate_imagination_pc_from_obs(obs)
+                cat_points = np.concatenate([points, (cats + 1) * 3], axis=-1)
+                wandb.log({"point_cloud": wandb.Object3D(cat_points)})
+
+            for cam_name, img_list in img_dict.items():
+                video_array = (np.stack(img_list, axis=0) * 255).astype(np.uint8)
+                video_array = np.transpose(video_array, (0, 3, 1, 2))
+                wandb.log(
+                    {f"{cam_name}_view": wandb.Video(video_array, fps=20, format="gif",
+                                                     caption=f"Reward: {reward_sum:.2f}")})
 
     def _on_training_end(self) -> None:
         if self.model_save_path is not None:

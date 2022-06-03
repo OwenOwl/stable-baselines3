@@ -36,6 +36,9 @@ if __name__ == '__main__':
         environment = create_relocate_env(object_name, use_visual_obs=True)
         return environment
 
+    def create_eval_env_fn():
+        environment = create_relocate_env(object_name, use_visual_obs=True, is_eval=True)
+        return environment
 
     env = SubprocVecEnv([create_env_fn] * args.workers, "spawn")
 
@@ -78,6 +81,10 @@ if __name__ == '__main__':
         callback=WandbCallback(
             model_save_freq=50,
             model_save_path=str(result_path / "model"),
+            eval_env_fn=create_eval_env_fn,
+            eval_freq=50,
+            eval_cam_names=["relocate_viz"],
+            viz_point_cloud=True,
         ),
     )
     wandb_run.finish()

@@ -2,9 +2,10 @@ import os
 
 from hand_teleop.env.rl_env.relocate_env import LabArmAllegroRelocateRLEnv
 from hand_teleop.real_world import task_setting
+from hand_teleop.env.sim_env.constructor import add_default_scene_light
 
 
-def create_relocate_env(object_name, use_visual_obs, use_gui=False):
+def create_relocate_env(object_name, use_visual_obs, use_gui=False, is_eval=False):
     if object_name == "mustard_bottle":
         robot_name = "allegro_hand_xarm6_wrist_mounted_face_front"
     elif object_name in ["tomato_soup_can", "potted_meat_can"]:
@@ -13,8 +14,13 @@ def create_relocate_env(object_name, use_visual_obs, use_gui=False):
         print(object_name)
         raise NotImplementedError
     rotation_reward_weight = 1
+    frame_skip = 10
     env_params = dict(object_name=object_name, robot_name=robot_name, rotation_reward_weight=rotation_reward_weight,
-                      randomness_scale=1, use_visual_obs=use_visual_obs, use_gui=use_gui, no_rgb=True)
+                      randomness_scale=1, use_visual_obs=use_visual_obs, use_gui=use_gui, no_rgb=True,
+                      frame_skip=frame_skip)
+    if is_eval:
+        env_params["no_rgb"] = False
+        env_params["need_offscreen_render"] = True
 
     # Specify rendering device if the computing device is given
     if "CUDA_VISIBLE_DEVICES" in os.environ:
@@ -26,6 +32,8 @@ def create_relocate_env(object_name, use_visual_obs, use_gui=False):
         env.setup_camera_from_config(task_setting.CAMERA_CONFIG["relocate"])
         env.setup_visual_obs_config(task_setting.OBS_CONFIG["relocate"])
 
-        return env
+    if is_eval:
+        env.setup_camera_from_config(task_setting.CAMERA_CONFIG["viz_only"])
+        add_default_scene_light(env.scene, env.renderer)
 
     return env
