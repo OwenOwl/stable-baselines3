@@ -34,7 +34,7 @@ class WandbCallback(BaseCallback):
             eval_freq: Optional[int] = None,
             eval_env_fn: Optional[Callable] = None,
             eval_cam_names: Optional[List[str]] = None,
-            viz_point_cloud=True,
+            viz_point_cloud=False,
             gradient_save_freq: int = 0,
     ):
         super().__init__(verbose)
@@ -77,39 +77,40 @@ class WandbCallback(BaseCallback):
         wandb.config.setdefaults(d)
 
     def _on_rollout_end(self) -> None:
-        self.roll_out += 1
         if self.model_save_freq > 0:
             if self.model_save_path is not None:
                 if self.roll_out % self.model_save_freq == 0:
                     self.save_model()
 
         if self.eval_freq is not None and self.eval_env_fn is not None:
-            env = self.eval_env_fn()
-            reward_sum = 0
-            obs = env.reset()
-            img_dict = {key: [] for key in self.eval_cam_names}
-            for i in range(env.horizon):
-                action = self.model.policy.predict(observation=obs, deterministic=True)[0]
-                obs, reward, done, _ = env.step(action)
-                env.scene.update_render()
-                for cam_name in self.eval_cam_names:
-                    cam = env.cameras[cam_name]
-                    cam.take_picture()
-                    img_dict[cam_name].append(fetch_texture(cam, "Color", return_torch=False))
+            if self.roll_out % self.eval_freq == 0:
+                env = self.eval_env_fn()
+                reward_sum = 0
+                obs = env.reset()
+                img_dict = {key: [] for key in self.eval_cam_names}
+                for i in range(env.horizon):
+                    action = self.model.policy.predict(observation=obs, deterministic=True)[0]
+                    obs, reward, done, _ = env.step(action)
+                    env.scene.update_render()
+                    for cam_name in self.eval_cam_names:
+                        cam = env.cameras[cam_name]
+                        cam.take_picture()
+                        img_dict[cam_name].append(fetch_texture(cam, "Color", return_torch=False))
 
-                reward_sum += reward
+                    reward_sum += reward
 
-            if self.viz_point_cloud:
-                points, colors, cats = generate_imagination_pc_from_obs(obs)
-                cat_points = np.concatenate([points, (cats + 1) * 3], axis=-1)
-                wandb.log({"point_cloud": wandb.Object3D(cat_points)})
+                if self.viz_point_cloud:
+                    points, colors, cats = generate_imagination_pc_from_obs(obs)
+                    cat_points = np.concatenate([points, (cats + 1) * 3], axis=-1)
+                    wandb.log({"point_cloud": wandb.Object3D(cat_points)})
 
-            for cam_name, img_list in img_dict.items():
-                video_array = (np.stack(img_list, axis=0) * 255).astype(np.uint8)
-                video_array = np.transpose(video_array, (0, 3, 1, 2))
-                wandb.log(
-                    {f"{cam_name}_view": wandb.Video(video_array, fps=20, format="gif",
-                                                     caption=f"Reward: {reward_sum:.2f}")})
+                for cam_name, img_list in img_dict.items():
+                    video_array = (np.stack(img_list, axis=0) * 255).astype(np.uint8)
+                    video_array = np.transpose(video_array, (0, 3, 1, 2))
+                    wandb.log(
+                        {f"{cam_name}_view": wandb.Video(video_array, fps=20, format="gif",
+                                                         caption=f"Reward: {reward_sum:.2f}")})
+        self.roll_out += 1
 
     def _on_training_end(self) -> None:
         if self.model_save_path is not None:

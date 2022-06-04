@@ -23,7 +23,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     object_name = args.object_name
     exp_keywords = ["ppo", object_name, args.exp, str(args.seed)]
-    horizon = 200
+    horizon = 500
     env_iter = args.iter * horizon * args.n
 
     config = {
