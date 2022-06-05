@@ -9,7 +9,7 @@ from hand_env_utils.wandb_callback import WandbCallback
 from hand_teleop.real_world import task_setting
 from stable_baselines3.common.torch_layers import PointNetImaginationExtractor
 from stable_baselines3.common.vec_env.subproc_vec_env import SubprocVecEnv
-from stable_baselines3.ppo_spr import PPO
+from stable_baselines3.ppo_pri import PPO
 
 
 def setup_wandb(parser_config, exp_name):
@@ -98,7 +98,7 @@ if __name__ == '__main__':
                 n_epochs=args.ep,
                 n_steps=(args.n // args.workers) * 500,
                 learning_rate=args.lr,
-                batch_size=((args.n // args.workers) * 500) // 8,
+                batch_size=args.bs,
                 seed=args.seed,
                 policy_kwargs=policy_kwargs,
                 tensorboard_log=str(result_path / "log"),

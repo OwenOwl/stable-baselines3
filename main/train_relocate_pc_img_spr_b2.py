@@ -98,7 +98,7 @@ if __name__ == '__main__':
                 n_epochs=args.ep,
                 n_steps=(args.n // args.workers) * 500,
                 learning_rate=args.lr,
-                batch_size=((args.n // args.workers) * 500) // 8,
+                batch_size=args.bs, #((args.n // args.workers) * 500) // 8,
                 seed=args.seed,
                 policy_kwargs=policy_kwargs,
                 tensorboard_log=str(result_path / "log"),
@@ -113,6 +113,10 @@ if __name__ == '__main__':
         callback=WandbCallback(
             model_save_freq=10,
             model_save_path=str(result_path / "model"),
+            eval_env_fn=create_eval_env_fn,
+            eval_freq=50,
+            eval_cam_names=["relocate_viz"],
+            viz_point_cloud=True,
         ),
     )
     wandb_run.finish()
