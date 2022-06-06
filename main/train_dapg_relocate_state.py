@@ -6,7 +6,7 @@ from hand_env_utils.arg_utils import *
 from hand_env_utils.teleop_env import create_relocate_env
 from hand_env_utils.wandb_callback import WandbCallback, setup_wandb
 from stable_baselines3.common.vec_env.subproc_vec_env import SubprocVecEnv
-from stable_baselines3.ppo import PPO
+from stable_baselines3.dapg import DAPG
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -19,10 +19,11 @@ if __name__ == '__main__':
     parser.add_argument('--iter', type=int, default=2000)
     parser.add_argument('--exp', type=str)
     parser.add_argument('--object_name', type=str)
+    parser.add_argument('--dataset_path', type=str)
 
     args = parser.parse_args()
     object_name = args.object_name
-    exp_keywords = ["ppo", object_name, args.exp, str(args.seed)]
+    exp_keywords = ["dapg", object_name, args.exp, str(args.seed)]
     horizon = 200
     env_iter = args.iter * horizon * args.n
 
@@ -36,12 +37,14 @@ if __name__ == '__main__':
     exp_name = "-".join(exp_keywords)
     result_path = Path("./results") / exp_name
     result_path.mkdir(exist_ok=True, parents=True)
-    wandb_run = setup_wandb(config, exp_name, tags=["state", "relocate", object_name])
+
+    wandb_run = setup_wandb(config, exp_name, tags=["state", "relocate", object_name, "dapg"])
 
 
     def create_env_fn():
         environment = create_relocate_env(object_name, use_visual_obs=False)
         return environment
+
 
     def create_eval_env_fn():
         environment = create_relocate_env(object_name, use_visual_obs=False, is_eval=True)
@@ -52,22 +55,28 @@ if __name__ == '__main__':
 
     print(env.observation_space, env.action_space)
 
-    model = PPO("MlpPolicy", env, verbose=1,
-                n_epochs=args.ep,
-                n_steps=(args.n // args.workers) * horizon,
-                learning_rate=args.lr,
-                batch_size=args.bs,
-                seed=args.seed,
-                policy_kwargs={'activation_fn': nn.ReLU},
-                tensorboard_log=str(result_path / "log"),
-                min_lr=args.lr,
-                max_lr=args.lr,
-                adaptive_kl=0.02,
-                target_kl=0.2,
-                )
+    model = DAPG("MlpPolicy", env, verbose=1,
+                 dataset_path=args.dataset_path,
+                 bc_coef=0.1,
+                 bc_decay=0.99,
+                 bc_batch_size=2000,
+                 n_epochs=args.ep,
+                 n_steps=(args.n // args.workers) * horizon,
+                 learning_rate=args.lr,
+                 batch_size=args.bs,
+                 seed=args.seed,
+                 policy_kwargs={'activation_fn': nn.ReLU},
+                 tensorboard_log=str(result_path / "log"),
+                 min_lr=args.lr,
+                 max_lr=args.lr,
+                 adaptive_kl=0.02,
+                 target_kl=0.5,
+                 )
 
     model.learn(
         total_timesteps=int(env_iter),
+        bc_init_epoch=50,
+        bc_init_batch_size=2000,
         callback=WandbCallback(
             model_save_freq=50,
             model_save_path=str(result_path / "model"),

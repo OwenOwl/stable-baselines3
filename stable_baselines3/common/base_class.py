@@ -666,6 +666,7 @@ class BaseAlgorithm(ABC):
         custom_objects: Optional[Dict[str, Any]] = None,
         print_system_info: bool = False,
         force_reset: bool = True,
+        check_obs_space: bool = True,
         **kwargs,
     ) -> "BaseAlgorithm":
         """
@@ -718,7 +719,8 @@ class BaseAlgorithm(ABC):
             # Wrap first if needed
             env = cls._wrap_env(env, data["verbose"])
             # Check if given env is valid
-            check_for_correct_spaces(env, data["observation_space"], data["action_space"])
+            if check_obs_space:
+                check_for_correct_spaces(env, data["observation_space"], data["action_space"])
             # Discard `_last_obs`, this will force the env to reset before training
             # See issue https://github.com/DLR-RM/stable-baselines3/issues/597
             if force_reset and data is not None:

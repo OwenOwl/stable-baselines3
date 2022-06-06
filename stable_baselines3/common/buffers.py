@@ -170,12 +170,12 @@ class ExpertBuffer(BaseBuffer):
         self.optimize_memory_usage = False
 
         # print(data[0])
+
         for trajectory in data:
             print(trajectory.keys())
             # for k, v in trajectory.items():
             data_obs.append(trajectory['observations'])
             data_action.append(trajectory['actions'])
-
         self.observations = np.concatenate(data_obs, axis=0)
         self.actions = np.concatenate(data_action, axis=0)
 

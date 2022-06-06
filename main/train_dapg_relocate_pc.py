@@ -7,25 +7,28 @@ from hand_env_utils.teleop_env import create_relocate_env
 from hand_env_utils.wandb_callback import WandbCallback, setup_wandb
 from stable_baselines3.common.torch_layers import PointNetStateExtractor
 from stable_baselines3.common.vec_env.subproc_vec_env import SubprocVecEnv
-from stable_baselines3.ppo import PPO
+from stable_baselines3.dapg import DAPG
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--n', type=int, default=100)
     parser.add_argument('--workers', type=int, default=10)
     parser.add_argument('--lr', type=float, default=3e-4)
-    parser.add_argument('--ep', type=int, default=5)
-    parser.add_argument('--bs', type=int, default=1000)
+    parser.add_argument('--ep', type=int, default=10)
+    parser.add_argument('--bs', type=int, default=500)
     parser.add_argument('--seed', type=int, default=100)
     parser.add_argument('--iter', type=int, default=1000)
+    parser.add_argument('--bc_weight', type=float, default=0.1)
     parser.add_argument('--exp', type=str)
     parser.add_argument('--object_name', type=str)
     parser.add_argument('--use_bn', type=bool, default=True)
+    parser.add_argument('--dataset_path', type=str)
 
     args = parser.parse_args()
+    horizon = 200
     object_name = args.object_name
-    exp_keywords = ["ppo_pc", object_name, args.exp, str(args.seed)]
-    env_iter = args.iter * 500 * args.n
+    exp_keywords = ["dapg_pc", object_name, args.exp, str(args.seed)]
+    env_iter = args.iter * horizon * args.n
 
     exp_name = "-".join(exp_keywords)
     result_path = Path("./results") / exp_name
@@ -63,24 +66,30 @@ if __name__ == '__main__':
 
     config = {'n_env_horizon': args.n, 'object_name': args.object_name, 'update_iteration': args.iter,
               'total_step': env_iter, "use_bn": args.use_bn, "policy_kwargs": policy_kwargs}
-    wandb_run = setup_wandb(config, exp_name, tags=["point_cloud", "relocate", object_name])
+    wandb_run = setup_wandb(config, exp_name, tags=["point_cloud", "relocate", object_name, "dapg"])
 
-    model = PPO("PointCloudPolicy", env, verbose=1,
-                n_epochs=args.ep,
-                n_steps=(args.n // args.workers) * 500,
-                learning_rate=args.lr,
-                batch_size=args.bs,
-                seed=args.seed,
-                policy_kwargs=policy_kwargs,
-                tensorboard_log=str(result_path / "log"),
-                min_lr=1e-4,
-                max_lr=args.lr,
-                adaptive_kl=0.02,
-                target_kl=0.1,
-                )
+    model = DAPG("PointCloudPolicy", env, verbose=1,
+                 dataset_path=args.dataset_path,
+                 bc_coef=args.bc_weight,
+                 bc_decay=0.99,
+                 bc_batch_size=500,
+                 n_epochs=args.ep,
+                 n_steps=(args.n // args.workers) * horizon,
+                 learning_rate=args.lr,
+                 batch_size=args.bs,
+                 seed=args.seed,
+                 policy_kwargs=policy_kwargs,
+                 tensorboard_log=str(result_path / "log"),
+                 min_lr=1e-4,
+                 max_lr=args.lr,
+                 adaptive_kl=0.02,
+                 target_kl=0.5,
+                 )
 
     model.learn(
         total_timesteps=int(env_iter),
+        bc_init_epoch=20,
+        bc_init_batch_size=500,
         callback=WandbCallback(
             model_save_freq=50,
             model_save_path=str(result_path / "model"),

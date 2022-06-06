@@ -30,7 +30,7 @@ def create_relocate_env(object_name, use_visual_obs, use_gui=False, is_eval=Fals
     if use_visual_obs:
         # Create camera and setup visual modality
         env.setup_camera_from_config(task_setting.CAMERA_CONFIG["relocate"])
-        env.setup_visual_obs_config(task_setting.OBS_CONFIG["relocate"])
+        env.setup_visual_obs_config(task_setting.OBS_CONFIG["relocate_noise"])
 
     if is_eval:
         env.setup_camera_from_config(task_setting.CAMERA_CONFIG["viz_only"])
