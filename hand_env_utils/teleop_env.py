@@ -10,7 +10,7 @@ def create_relocate_env(object_name, use_visual_obs, object_category="YCB", use_
         robot_name = "allegro_hand_xarm6_wrist_mounted_face_front"
     elif object_name in ["tomato_soup_can", "potted_meat_can"]:
         robot_name = "allegro_hand_xarm6_wrist_mounted_face_down"
-    elif object_name in ["any_eval"]:
+    elif object_category == "egad":
         robot_name = "allegro_hand_xarm6_wrist_mounted_face_down"
     else:
         print(object_name)
