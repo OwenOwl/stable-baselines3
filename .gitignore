@@ -53,3 +53,4 @@ MUJOCO_LOG.TXT
 /eval_checkpoint/
 /nautilus/
 /demonstration/
+/nautilus_results/
