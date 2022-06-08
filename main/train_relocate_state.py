@@ -17,6 +17,7 @@ if __name__ == '__main__':
     parser.add_argument('--bs', type=int, default=2000)
     parser.add_argument('--seed', type=int, default=100)
     parser.add_argument('--iter', type=int, default=2000)
+    parser.add_argument('--randomness', type=float, default=1.0)
     parser.add_argument('--exp', type=str)
     parser.add_argument('--object_name', type=str)
     parser.add_argument('--object_cat', default="YCB", type=str)
@@ -24,6 +25,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     object_name = args.object_name
     object_cat = args.object_cat
+    randomness = args.randomness
     exp_keywords = ["ppo", object_name, args.exp, str(args.seed)]
     horizon = 200
     env_iter = args.iter * horizon * args.n
@@ -34,6 +36,7 @@ if __name__ == '__main__':
         'object_category': object_cat,
         'update_iteration': args.iter,
         'total_step': env_iter,
+        'randomness': randomness,
     }
 
     exp_name = "-".join(exp_keywords)
@@ -43,12 +46,14 @@ if __name__ == '__main__':
 
 
     def create_env_fn():
-        environment = create_relocate_env(object_name, use_visual_obs=False, object_category=object_cat)
+        environment = create_relocate_env(object_name, use_visual_obs=False, object_category=object_cat,
+                                          randomness_scale=randomness)
         return environment
 
 
     def create_eval_env_fn():
-        environment = create_relocate_env(object_name, use_visual_obs=False, is_eval=True, object_category=object_cat)
+        environment = create_relocate_env(object_name, use_visual_obs=False, is_eval=True, object_category=object_cat,
+                                          randomness_scale=randomness)
         return environment
 
 
