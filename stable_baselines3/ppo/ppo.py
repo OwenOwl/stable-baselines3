@@ -218,10 +218,13 @@ class PPO(OnPolicyAlgorithm):
         continue_training = True
 
         # train for n_epochs epochs
+        num_early_stopping = 0
+        num_batch_update = 0
         for epoch in range(self.n_epochs):
             approx_kl_divs = []
             # Do a complete pass on the rollout buffer
             for rollout_data in self.rollout_buffer.get(self.batch_size):
+                num_batch_update += 1
                 actions = rollout_data.actions
                 if isinstance(self.action_space, spaces.Discrete):
                     # Convert discrete action from float to long
@@ -243,10 +246,13 @@ class PPO(OnPolicyAlgorithm):
                     approx_kl_div = th.mean((th.exp(log_ratio) - 1) - log_ratio).cpu().numpy()
                     approx_kl_divs.append(approx_kl_div)
 
-                if self.target_kl is not None and approx_kl_div > 1.5 * self.target_kl:
+                n_iter = self._n_updates // self.n_epochs
+                scheduling = max(0.99 ** n_iter, 0.05) * 10
+                if self.target_kl is not None and approx_kl_div > 1.5 * self.target_kl * scheduling:
                     # continue_training = False
-                    if self.verbose >= 1:
-                        print(f"Early stopping at step {epoch} due to reaching max kl: {approx_kl_div:.2f}")
+                    num_early_stopping += 1
+                    # if self.verbose >= 1:
+                    #     print(f"Early stopping at step {epoch} due to reaching max kl: {approx_kl_div:.2f}")
                     continue
 
                 # Normalize advantage
@@ -315,6 +321,7 @@ class PPO(OnPolicyAlgorithm):
         self.logger.record("train/clip_fraction", np.mean(clip_fractions))
         self.logger.record("train/loss", loss.item())
         self.logger.record("train/explained_variance", explained_var)
+        self.logger.record("train/skipped_minibatch", num_early_stopping / num_batch_update)
         if hasattr(self.policy, "log_std"):
             self.logger.record("train/std", th.exp(self.policy.log_std).mean().item())
 

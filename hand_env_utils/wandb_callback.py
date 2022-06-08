@@ -108,7 +108,7 @@ class WandbCallback(BaseCallback):
                     video_array = (np.stack(img_list, axis=0) * 255).astype(np.uint8)
                     video_array = np.transpose(video_array, (0, 3, 1, 2))
                     wandb.log(
-                        {f"{cam_name}_view": wandb.Video(video_array, fps=20, format="gif",
+                        {f"{cam_name}_view": wandb.Video(video_array, fps=20, format="mp4",
                                                          caption=f"Reward: {reward_sum:.2f}")})
         self.roll_out += 1
 
