@@ -228,6 +228,7 @@ class OnPolicyAlgorithm(BaseAlgorithm):
         reward_gap = last_episode_reward - self.last_rollout_reward
         if reward_gap > max(20.0, last_episode_reward * 0.1):
             self.need_restore = True
+            self.last_rollout_reward = last_episode_reward
 
         callback.on_rollout_end()
 
@@ -274,11 +275,8 @@ class OnPolicyAlgorithm(BaseAlgorithm):
             if self.need_restore:
                 print(f"Large performance drop detected. Restore previous model.")
                 self.set_parameters(self.last_policy_saved, exact_match=True, device=self.device)
-                self.logger.record("rollout/restore", 1)
                 self.need_restore = False
                 continue
-            else:
-                self.logger.record("rollout/restore", 0)
 
             self.last_policy_saved = self.get_parameters()
 
