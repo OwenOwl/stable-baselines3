@@ -68,7 +68,6 @@ if __name__ == '__main__':
                 batch_size=args.bs,
                 seed=args.seed,
                 policy_kwargs={'activation_fn': nn.ReLU},
-                tensorboard_log=str(result_path / "log"),
                 min_lr=args.lr,
                 max_lr=args.lr,
                 adaptive_kl=0.02,
