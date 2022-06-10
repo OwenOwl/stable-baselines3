@@ -13,6 +13,8 @@ def create_relocate_env(object_name, use_visual_obs, object_category="YCB", use_
         robot_name = "allegro_hand_xarm6_wrist_mounted_face_down"
     elif object_category == "egad":
         robot_name = "allegro_hand_xarm6_wrist_mounted_face_down"
+    elif object_category.isnumeric() and object_category == "02876657":
+        robot_name = "allegro_hand_xarm6_wrist_mounted_face_front"
     else:
         print(object_name)
         raise NotImplementedError
