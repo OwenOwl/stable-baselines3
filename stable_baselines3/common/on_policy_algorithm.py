@@ -98,7 +98,8 @@ class OnPolicyAlgorithm(BaseAlgorithm):
 
         self.last_rollout_reward = -np.inf
         self.need_restore = False
-        self.last_policy_saved = {}
+        self.last_policy_saved: List[Dict] = [{}, {}]
+        self.current_restore_step = 0
 
         if _init_setup_model:
             self._setup_model()
@@ -229,6 +230,7 @@ class OnPolicyAlgorithm(BaseAlgorithm):
         if reward_gap > max(20.0, last_episode_reward * 0.1):
             self.need_restore = True
             self.last_rollout_reward = last_episode_reward
+            self.current_restore_step += 1
 
         callback.on_rollout_end()
 
@@ -272,13 +274,15 @@ class OnPolicyAlgorithm(BaseAlgorithm):
             if continue_training is False:
                 break
 
-            if self.need_restore:
+            if self.need_restore and self.current_restore_step < 10:
                 print(f"Large performance drop detected. Restore previous model.")
-                self.set_parameters(self.last_policy_saved, exact_match=True, device=self.device)
-                self.need_restore = False
+                self.set_parameters(self.last_policy_saved[0], exact_match=True, device=self.device)
                 continue
-
-            self.last_policy_saved = self.get_parameters()
+            else:
+                self.need_restore = False
+                self.current_restore_step = 0
+                self.last_policy_saved[0] = self.last_policy_saved[1]
+                self.last_policy_saved[1] = self.get_parameters()
 
             iteration += 1
             self._update_current_progress_remaining(self.num_timesteps, total_timesteps)

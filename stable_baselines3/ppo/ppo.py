@@ -319,7 +319,6 @@ class PPO(OnPolicyAlgorithm):
         self.logger.record("train/value_loss", np.mean(value_losses))
         self.logger.record("train/approx_kl", np.mean(approx_kl_divs))
         self.logger.record("train/clip_fraction", np.mean(clip_fractions))
-        self.logger.record("train/loss", loss.item())
         self.logger.record("train/explained_variance", explained_var)
         self.logger.record("rollout/skipped_minibatch", num_early_stopping / num_batch_update)
         if hasattr(self.policy, "log_std"):

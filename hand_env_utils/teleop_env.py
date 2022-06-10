@@ -6,7 +6,7 @@ from hand_teleop.env.sim_env.constructor import add_default_scene_light
 
 
 def create_relocate_env(object_name, use_visual_obs, object_category="YCB", use_gui=False, is_eval=False,
-                        randomness_scale=1):
+                        randomness_scale=1, pc_noise=True):
     if object_name == "mustard_bottle":
         robot_name = "allegro_hand_xarm6_wrist_mounted_face_front"
     elif object_name in ["tomato_soup_can", "potted_meat_can"]:
@@ -33,7 +33,10 @@ def create_relocate_env(object_name, use_visual_obs, object_category="YCB", use_
     if use_visual_obs:
         # Create camera and setup visual modality
         env.setup_camera_from_config(task_setting.CAMERA_CONFIG["relocate"])
-        env.setup_visual_obs_config(task_setting.OBS_CONFIG["relocate_noise"])
+        if pc_noise:
+            env.setup_visual_obs_config(task_setting.OBS_CONFIG["relocate_noise"])
+        else:
+            env.setup_visual_obs_config(task_setting.OBS_CONFIG["relocate"])
 
     if is_eval:
         env.setup_camera_from_config(task_setting.CAMERA_CONFIG["viz_only"])

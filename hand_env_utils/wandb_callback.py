@@ -60,7 +60,6 @@ class WandbCallback(BaseCallback):
             ), "to use the `model_save_freq` you have to set the `model_save_path` parameter"
 
         self.roll_out = 0
-        self.current_restore_step = 0
 
     def _init_callback(self) -> None:
         d = {}
@@ -79,8 +78,8 @@ class WandbCallback(BaseCallback):
 
     def _on_rollout_end(self) -> None:
         need_restore = self.model.__dict__.get("need_restore", False)
+        current_restore_step = self.model.__dict__.get("current_restore_step", False)
         if need_restore:
-            self.current_restore_step += 1
             return
 
         if self.model_save_freq > 0:
@@ -116,7 +115,7 @@ class WandbCallback(BaseCallback):
                     wandb.log(
                         {f"{cam_name}_view": wandb.Video(video_array, fps=20, format="mp4",
                                                          caption=f"Reward: {reward_sum:.2f}")}, step=self.roll_out + 1)
-        wandb.log({"rollout/restore": self.current_restore_step}, step=self.roll_out + 1)
+        wandb.log({"rollout/restore": current_restore_step}, step=self.roll_out + 1)
         self.current_restore_step = 0
         self.roll_out += 1
 
