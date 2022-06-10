@@ -78,7 +78,8 @@ class WandbCallback(BaseCallback):
 
     def _on_rollout_end(self) -> None:
         need_restore = self.model.__dict__.get("need_restore", False)
-        current_restore_step = self.model.__dict__.get("current_restore_step", False)
+        current_restore_step = self.model.__dict__.get("current_restore_step", 0)
+        wandb.log({"rollout/restore": current_restore_step}, step=self.roll_out + 1)
         if need_restore:
             return
 
@@ -115,7 +116,6 @@ class WandbCallback(BaseCallback):
                     wandb.log(
                         {f"{cam_name}_view": wandb.Video(video_array, fps=20, format="mp4",
                                                          caption=f"Reward: {reward_sum:.2f}")}, step=self.roll_out + 1)
-        wandb.log({"rollout/restore": current_restore_step}, step=self.roll_out + 1)
         self.current_restore_step = 0
         self.roll_out += 1
 
