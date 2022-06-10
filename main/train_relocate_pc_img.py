@@ -24,6 +24,7 @@ if __name__ == '__main__':
     parser.add_argument('--object_name', type=str)
     parser.add_argument('--object_cat', default="YCB", type=str)
     parser.add_argument('--use_bn', type=bool, default=True)
+    parser.add_argument('--noise_pc', type=bool, default=True)
     parser.add_argument('--img_type',
                         default='all',
                         const='all',
@@ -67,14 +68,14 @@ if __name__ == '__main__':
 
     def create_env_fn():
         environment = create_relocate_env(object_name, use_visual_obs=True, object_category=object_cat,
-                                          randomness_scale=randomness)
+                                          randomness_scale=randomness, pc_noise=args.noise_pc)
         environment.setup_imagination_config(img_config)
         return environment
 
 
     def create_eval_env_fn():
         environment = create_relocate_env(object_name, use_visual_obs=True, is_eval=True, object_category=object_cat,
-                                          randomness_scale=randomness)
+                                          randomness_scale=randomness, pc_noise=args.noise_pc)
         environment.setup_imagination_config(img_config)
         return environment
 
@@ -111,7 +112,7 @@ if __name__ == '__main__':
                 min_lr=args.lr,
                 max_lr=args.lr,
                 adaptive_kl=0.02,
-                target_kl=0.1,
+                target_kl=0.2,
                 )
 
     model.learn(
