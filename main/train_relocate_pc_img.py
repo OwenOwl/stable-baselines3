@@ -88,7 +88,7 @@ if __name__ == '__main__':
     feature_extractor_kwargs = {
         "pc_key": "relocate-point_cloud",
         "local_channels": (64, 128, 256),
-        "global_channels": (256, ),
+        "global_channels": (256,),
         "imagination_keys": imagination_keys,
         "use_bn": args.use_bn,
     }

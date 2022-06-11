@@ -364,14 +364,23 @@ class PointNetExtractor(BaseFeaturesExtractor):
 
 
 class PointNetImaginationExtractor(PointNetExtractor):
-    def __init__(self, observation_space: gym.spaces.Dict, pc_key: str, use_bn=True,
-                 local_channels=(64, 128, 256), global_channels=(256,), imagination_keys=("imagination_robot",)):
+    def __init__(self, observation_space: gym.spaces.Dict, pc_key: str, use_bn=True, local_channels=(64, 128, 256),
+                 global_channels=(256,), imagination_keys=("imagination_robot",), state_key="state",
+                 state_mlp_size=(64, 64), state_mlp_activation_fn=nn.ReLU):
         self.imagination_key = imagination_keys
         self.imagination_one_hot = []
         if len(imagination_keys) >= 1:
             one_hot_dim = 4
         else:
             one_hot_dim = 0  # Vanilla PointNet
+
+        # Init state representation
+        self.use_state = state_key is not None
+        self.state_key = state_key
+        if self.use_state:
+            if state_key not in observation_space.spaces.keys():
+                raise RuntimeError(f"State key {state_key} not in observation space: {observation_space}")
+            self.state_space = observation_space[self.state_key]
 
         super().__init__(observation_space, pc_key, None, use_bn=use_bn, local_channels=local_channels,
                          global_channels=global_channels, one_hot_dim=one_hot_dim)
@@ -400,6 +409,21 @@ class PointNetImaginationExtractor(PointNetExtractor):
         self.img_feats = torch.transpose(torch.cat([self.obs_pc_one_hot] + self.imagination_one_hot), 0, 1).unsqueeze(
             0)  # (1, 4, p)
 
+        # State MLP
+        if self.use_state:
+            self.state_dim = self.state_space.shape[0]
+            if len(state_mlp_size) == 0:
+                raise RuntimeError(f"State mlp size is empty")
+            elif len(state_mlp_size) == 1:
+                net_arch = []
+            else:
+                net_arch = state_mlp_size[:-1]
+            output_dim = state_mlp_size[-1]
+
+            self.n_output_channels = self.point_net.out_channels + output_dim
+            self._features_dim = self.n_output_channels
+            self.state_mlp = nn.Sequential(*create_mlp(self.state_dim, output_dim, net_arch, state_mlp_activation_fn))
+
     def forward(self, observations: TensorDict) -> th.Tensor:
         points = torch.transpose(observations[self.pc_key], 1, 2)
         batch_size = points.shape[0]
@@ -414,7 +438,12 @@ class PointNetImaginationExtractor(PointNetExtractor):
         else:
             feats = None
 
-        return self.point_net(points, feats)["feature"]
+        pn_feat = self.point_net(points, feats)["feature"]
+        if self.use_state:
+            state_feat = self.state_mlp(observations[self.state_key])
+            return torch.cat([pn_feat, state_feat], dim=-1)
+        else:
+            return pn_feat
 
 
 class PointNetStateExtractor(PointNetExtractor):
