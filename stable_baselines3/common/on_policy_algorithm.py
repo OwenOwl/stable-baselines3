@@ -229,8 +229,9 @@ class OnPolicyAlgorithm(BaseAlgorithm):
         reward_gap = last_episode_reward - self.last_rollout_reward
         if reward_gap > max(20.0, last_episode_reward * 0.2):
             self.need_restore = True
-            self.last_rollout_reward = last_episode_reward
             self.current_restore_step += 1
+            if self.current_restore_step < 5:
+                self.last_rollout_reward = last_episode_reward
         else:
             self.need_restore = False
             self.current_restore_step = 0
