@@ -16,7 +16,7 @@ if __name__ == '__main__':
     parser.add_argument('--workers', type=int, default=10)
     parser.add_argument('--lr', type=float, default=3e-4)
     parser.add_argument('--ep', type=int, default=10)
-    parser.add_argument('--bs', type=int, default=1000)
+    parser.add_argument('--bs', type=int, default=500)
     parser.add_argument('--seed', type=int, default=100)
     parser.add_argument('--iter', type=int, default=1000)
     parser.add_argument('--randomness', type=float, default=1.0)
@@ -112,7 +112,7 @@ if __name__ == '__main__':
                 min_lr=args.lr,
                 max_lr=args.lr,
                 adaptive_kl=0.02,
-                target_kl=0.2,
+                target_kl=0.4,
                 )
 
     model.learn(
