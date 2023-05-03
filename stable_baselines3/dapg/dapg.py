@@ -1,16 +1,18 @@
 import warnings
-from typing import Any, Dict, Optional, Type, Union
+from typing import Any, Dict, Optional, Type, Union, List
 
 import numpy as np
 import torch as th
 from gym import spaces
 from torch.nn import functional as F
 
-from stable_baselines3.common.buffers import ExpertBuffer
 from stable_baselines3.common.on_policy_algorithm import OnPolicyAlgorithm
-from stable_baselines3.common.policies import ActorCriticCnnPolicy, ActorCriticPolicy, BasePolicy, MultiInputActorCriticPolicy
+from stable_baselines3.common.policies import ActorCriticCnnPolicy, ActorCriticPolicy, BasePolicy, \
+    MultiInputActorCriticPolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
-from stable_baselines3.common.utils import explained_variance, get_schedule_fn
+from stable_baselines3.common.utils import explained_variance, get_schedule_fn, update_learning_rate
+from stable_baselines3.dapg.expert_buffer import ExpertRolloutBuffer, DictExpertRolloutBuffer
+from stable_baselines3.ppo.ppo import AdaptiveScheduler
 
 
 class DAPG(OnPolicyAlgorithm):
@@ -68,43 +70,47 @@ class DAPG(OnPolicyAlgorithm):
 
     policy_aliases: Dict[str, Type[BasePolicy]] = {
         "MlpPolicy": ActorCriticPolicy,
+        "PointCloudPolicy": ActorCriticPolicy,
         "CnnPolicy": ActorCriticCnnPolicy,
         "MultiInputPolicy": MultiInputActorCriticPolicy,
     }
 
     def __init__(
-        self,
-        policy: Union[str, Type[ActorCriticPolicy]],
-        env: Union[GymEnv, str],
-        dataset_path: str,
-        bc_coef = 0.01,
-        bc_decay = 0.95,
-        learning_rate: Union[float, Schedule] = 3e-4,
-        n_steps: int = 2048,
-        batch_size: int = 64,
-        n_epochs: int = 10,
-        gamma: float = 0.99,
-        gae_lambda: float = 0.95,
-        clip_range: Union[float, Schedule] = 0.2,
-        clip_range_vf: Union[None, float, Schedule] = None,
-        normalize_advantage: bool = True,
-        ent_coef: float = 0.0,
-        vf_coef: float = 0.5,
-        max_grad_norm: float = 0.5,
-        use_sde: bool = False,
-        sde_sample_freq: int = -1,
-        target_kl: Optional[float] = None,
-        tensorboard_log: Optional[str] = None,
-        create_eval_env: bool = False,
-        policy_kwargs: Optional[Dict[str, Any]] = None,
-        verbose: int = 0,
-        seed: Optional[int] = None,
-        device: Union[th.device, str] = "auto",
-        _init_setup_model: bool = True,
-        save_path=''
+            self,
+            policy: Union[str, Type[ActorCriticPolicy]],
+            env: Union[GymEnv, str],
+            dataset_path: str = "",
+            bc_coef=0.1,
+            bc_decay=0.99,
+            bc_batch_size=2000,
+            learning_rate: Union[float, Schedule] = 3e-4,
+            n_steps: int = 2048,
+            batch_size: int = 64,
+            n_epochs: int = 10,
+            gamma: float = 0.99,
+            gae_lambda: float = 0.95,
+            clip_range: Union[float, Schedule] = 0.2,
+            clip_range_vf: Union[None, float, Schedule] = None,
+            normalize_advantage: bool = True,
+            ent_coef: float = 0.0,
+            vf_coef: float = 0.5,
+            max_grad_norm: float = 0.5,
+            use_sde: bool = False,
+            sde_sample_freq: int = -1,
+            target_kl: Optional[float] = None,
+            tensorboard_log: Optional[str] = None,
+            create_eval_env: bool = False,
+            policy_kwargs: Optional[Dict[str, Any]] = None,
+            verbose: int = 0,
+            seed: Optional[int] = None,
+            device: Union[th.device, str] = "auto",
+            _init_setup_model: bool = True,
+            adaptive_kl: float = 0.02,
+            min_lr=1e-4,
+            max_lr=1e-3,
     ):
 
-        super(DAPG, self).__init__(
+        super().__init__(
             policy,
             env,
             learning_rate=learning_rate,
@@ -129,14 +135,13 @@ class DAPG(OnPolicyAlgorithm):
                 spaces.MultiDiscrete,
                 spaces.MultiBinary,
             ),
-            save_path=save_path
         )
 
         # Sanity check, otherwise it will lead to noisy gradient and NaN
         # because of the advantage normalization
         if normalize_advantage:
             assert (
-                batch_size > 1
+                    batch_size > 1
             ), "`batch_size` must be greater than 1. See https://github.com/DLR-RM/stable-baselines3/issues/440"
 
         if self.env is not None:
@@ -144,7 +149,7 @@ class DAPG(OnPolicyAlgorithm):
             # when doing advantage normalization
             buffer_size = self.env.num_envs * self.n_steps
             assert (
-                buffer_size > 1
+                    buffer_size > 1
             ), f"`n_steps * n_envs` must be greater than 1. Currently n_steps={self.n_steps} and n_envs={self.env.num_envs}"
             # Check that the rollout buffer size is a multiple of the mini-batch size
             untruncated_batches = buffer_size // batch_size
@@ -157,25 +162,37 @@ class DAPG(OnPolicyAlgorithm):
                     f"We recommend using a `batch_size` that is a factor of `n_steps * n_envs`.\n"
                     f"Info: (n_steps={self.n_steps} and n_envs={self.env.num_envs})"
                 )
+                raise ValueError(f"In DAPG, truncated batch is not allowed.")
+        else:
+            raise NotImplementedError
+
         self.batch_size = batch_size
         self.n_epochs = n_epochs
         self.clip_range = clip_range
         self.clip_range_vf = clip_range_vf
         self.normalize_advantage = normalize_advantage
         self.target_kl = target_kl
+        self.kl_scheduler = AdaptiveScheduler(kl_threshold=adaptive_kl, min_lr=min_lr, max_lr=max_lr,
+                                              init_lr=learning_rate)
+
+        # DAPG parameters
         self.bc_coef = bc_coef
         self.bc_decay = bc_decay
+        self.bc_batch_size = bc_batch_size
         self.epoch_elapsed = 0
-        self.expert_rollout_buffer = ExpertBuffer(buffer_size=10000,
-                                                  observation_space=self.env.observation_space,
-                                                  action_space=self.env.action_space,
-                                                  device="cuda", dataset_path=dataset_path)
+        buffer_cls = DictExpertRolloutBuffer if isinstance(self.observation_space, spaces.Dict) else ExpertRolloutBuffer
+        if len(dataset_path) > 0:
+            self.expert_rollout_buffer = buffer_cls(observation_space=self.env.observation_space,
+                                                    action_space=self.env.action_space,
+                                                    device="cuda", dataset_path=dataset_path)
+        else:
+            print(f"No dataset load for DAPG. Can only be used in eval mode but not training.")
 
         if _init_setup_model:
             self._setup_model()
 
     def _setup_model(self) -> None:
-        super(DAPG, self)._setup_model()
+        super()._setup_model()
 
         # Initialize schedules for policy/value clipping
         self.clip_range = get_schedule_fn(self.clip_range)
@@ -185,7 +202,6 @@ class DAPG(OnPolicyAlgorithm):
 
             self.clip_range_vf = get_schedule_fn(self.clip_range_vf)
 
-
     def train(self) -> None:
         """
         Update policy using the currently gathered rollout buffer.
@@ -193,7 +209,7 @@ class DAPG(OnPolicyAlgorithm):
         # Switch to train mode (this affects batch norm / dropout)
         self.policy.set_training_mode(True)
         # Update optimizer learning rate
-        self._update_learning_rate(self.policy.optimizer)
+        self.logger.record("train/learning_rate", self.kl_scheduler.current_lr)
         # Compute current clip range
         clip_range = self.clip_range(self._current_progress_remaining)
         # Optional: clip range for the value function
@@ -206,14 +222,16 @@ class DAPG(OnPolicyAlgorithm):
 
         continue_training = True
 
-
         # train for n_epochs epochs
+        weight = 1
+        num_early_stopping = 0
+        num_batch_update = 0
         for epoch in range(self.n_epochs):
             approx_kl_divs = []
             # Do a complete pass on the rollout buffer
+            bc_generator = self.expert_rollout_buffer.get(self.bc_batch_size)
             for rollout_data in self.rollout_buffer.get(self.batch_size):
-                weight = self.batch_size / self.n_steps
-
+                num_batch_update += 1
                 actions = rollout_data.actions
                 if isinstance(self.action_space, spaces.Discrete):
                     # Convert discrete action from float to long
@@ -226,8 +244,22 @@ class DAPG(OnPolicyAlgorithm):
                 values, log_prob, entropy = self.policy.evaluate_actions(rollout_data.observations, actions)
                 values = values.flatten()
 
+                # Calculate approximate form of reverse KL Divergence for early stopping
+                # see issue #417: https://github.com/DLR-RM/stable-baselines3/issues/417
+                # and discussion in PR #419: https://github.com/DLR-RM/stable-baselines3/pull/419
+                # and Schulman blog: http://joschu.net/blog/kl-approx.html
+                with th.no_grad():
+                    log_ratio = log_prob - rollout_data.old_log_prob
+                    approx_kl_div = th.mean((th.exp(log_ratio) - 1) - log_ratio).cpu().numpy()
+                    approx_kl_divs.append(approx_kl_div)
+
+                if self.target_kl is not None and approx_kl_div > 1.5 * self.target_kl:
+                    # continue_training = False
+                    num_early_stopping += 1
+                    continue
+
                 # For DAPG, it will also compute the behavioral loss.
-                expert_data = self.expert_rollout_buffer.get_all_samples()
+                expert_data = next(bc_generator)
                 _, expert_log_prob, _ = self.policy.evaluate_actions(expert_data.observations, expert_data.actions)
                 bc_loss = - expert_log_prob.mean()
                 bc_losses.append(bc_loss.item())
@@ -244,7 +276,6 @@ class DAPG(OnPolicyAlgorithm):
                 policy_loss_1 = advantages * ratio
                 policy_loss_2 = advantages * th.clamp(ratio, 1 - clip_range, 1 + clip_range)
                 policy_loss = -th.min(policy_loss_1, policy_loss_2).mean()
-
 
                 # Logging
                 pg_losses.append(policy_loss.item())
@@ -274,22 +305,11 @@ class DAPG(OnPolicyAlgorithm):
                 entropy_losses.append(entropy_loss.item())
 
                 loss = policy_loss + self.ent_coef * entropy_loss \
-                       + self.vf_coef * value_loss + weight * self.bc_coef * (self.bc_decay ** self._n_updates) * bc_loss
+                       + self.vf_coef * value_loss + weight * self.bc_coef * (
+                               self.bc_decay ** self._n_updates) * bc_loss
 
-                # Calculate approximate form of reverse KL Divergence for early stopping
-                # see issue #417: https://github.com/DLR-RM/stable-baselines3/issues/417
-                # and discussion in PR #419: https://github.com/DLR-RM/stable-baselines3/pull/419
-                # and Schulman blog: http://joschu.net/blog/kl-approx.html
-                with th.no_grad():
-                    log_ratio = log_prob - rollout_data.old_log_prob
-                    approx_kl_div = th.mean((th.exp(log_ratio) - 1) - log_ratio).cpu().numpy()
-                    approx_kl_divs.append(approx_kl_div)
-
-                if self.target_kl is not None and approx_kl_div > 1.5 * self.target_kl:
-                    continue_training = False
-                    if self.verbose >= 1:
-                        print(f"Early stopping at step {epoch} due to reaching max kl: {approx_kl_div:.2f}")
-                    break
+                lr = self.kl_scheduler.update(approx_kl_div)
+                update_learning_rate(self.policy.optimizer, lr)
 
                 # Optimization step
                 self.policy.optimizer.zero_grad()
@@ -297,11 +317,13 @@ class DAPG(OnPolicyAlgorithm):
                 # Clip grad norm
                 th.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
                 self.policy.optimizer.step()
-            print("Doing subepoch", epoch)
+
             if not continue_training:
                 break
 
-        print("Finish Epoch.")
+        if self.verbose >= 1:
+            print(f"Early stopping / mini batch update:  {num_early_stopping} / {num_batch_update}")
+
         self._n_updates += self.n_epochs
         explained_var = explained_variance(self.rollout_buffer.values.flatten(), self.rollout_buffer.returns.flatten())
 
@@ -312,8 +334,8 @@ class DAPG(OnPolicyAlgorithm):
         self.logger.record("train/value_loss", np.mean(value_losses))
         self.logger.record("train/approx_kl", np.mean(approx_kl_divs))
         self.logger.record("train/clip_fraction", np.mean(clip_fractions))
-        self.logger.record("train/loss", loss.item())
         self.logger.record("train/explained_variance", explained_var)
+        self.logger.record("train/skipped_minibatch", num_early_stopping / num_batch_update)
         if hasattr(self.policy, "log_std"):
             self.logger.record("train/std", th.exp(self.policy.log_std).mean().item())
 
@@ -323,19 +345,36 @@ class DAPG(OnPolicyAlgorithm):
             self.logger.record("train/clip_range_vf", clip_range_vf)
 
     def learn(
-        self,
-        total_timesteps: int,
-        callback: MaybeCallback = None,
-        log_interval: int = 1,
-        eval_env: Optional[GymEnv] = None,
-        eval_freq: int = -1,
-        n_eval_episodes: int = 5,
-        tb_log_name: str = "PPO",
-        eval_log_path: Optional[str] = None,
-        reset_num_timesteps: bool = True,
+            self,
+            total_timesteps: int,
+            callback: MaybeCallback = None,
+            log_interval: int = 1,
+            eval_env: Optional[GymEnv] = None,
+            eval_freq: int = -1,
+            n_eval_episodes: int = 5,
+            tb_log_name: str = "OnPolicyAlgorithm",
+            eval_log_path: Optional[str] = None,
+            reset_num_timesteps: bool = True,
+            bc_init_epoch=10,
+            bc_init_batch_size=2000,
     ) -> "DAPG":
 
-        return super(DAPG, self).learn(
+        # BC Init
+        # self.policy.log_std.requires_grad = False
+        for epoch in range(bc_init_epoch):
+            for expert_data in self.expert_rollout_buffer.get(bc_init_batch_size, loop=False):
+                _, expert_log_prob, _ = self.policy.evaluate_actions(expert_data.observations, expert_data.actions)
+                bc_loss = - expert_log_prob.mean()
+
+                self.policy.optimizer.zero_grad()
+                bc_loss.backward()
+                th.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
+                self.policy.optimizer.step()
+
+            print(f"BC Loss after {epoch} epoch: {bc_loss.item():.4f}")
+
+        # self.policy.log_std.requires_grad = True
+        super().learn(
             total_timesteps=total_timesteps,
             callback=callback,
             log_interval=log_interval,
@@ -346,3 +385,17 @@ class DAPG(OnPolicyAlgorithm):
             eval_log_path=eval_log_path,
             reset_num_timesteps=reset_num_timesteps,
         )
+        return self
+
+    def _excluded_save_params(self) -> List[str]:
+        """
+        Returns the names of the parameters that should be excluded from being
+        saved by pickling. E.g. replay buffers are skipped by default
+        as they take up a lot of space. PyTorch variables should be excluded
+        with this so they can be stored with ``th.save``.
+
+        :return: List of parameters that should be excluded from being saved with pickle.
+        """
+        exclude = super()._excluded_save_params()
+        dapg_exclude = ["expert_rollout_buffer"]
+        return exclude + dapg_exclude

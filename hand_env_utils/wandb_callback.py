@@ -77,6 +77,12 @@ class WandbCallback(BaseCallback):
         wandb.config.setdefaults(d)
 
     def _on_rollout_end(self) -> None:
+        need_restore = self.model.__dict__.get("need_restore", False)
+        current_restore_step = self.model.__dict__.get("current_restore_step", 0)
+        wandb.log({"rollout/restore": current_restore_step}, step=self.roll_out + 1)
+        if need_restore and current_restore_step <= 5:
+            return
+
         if self.model_save_freq > 0:
             if self.model_save_path is not None:
                 if self.roll_out % self.model_save_freq == 0:
@@ -102,14 +108,15 @@ class WandbCallback(BaseCallback):
                 if self.viz_point_cloud:
                     points, colors, cats = generate_imagination_pc_from_obs(obs)
                     cat_points = np.concatenate([points, (cats + 1) * 3], axis=-1)
-                    wandb.log({"point_cloud": wandb.Object3D(cat_points)})
+                    wandb.log({"point_cloud": wandb.Object3D(cat_points)}, step=self.roll_out + 1)
 
                 for cam_name, img_list in img_dict.items():
                     video_array = (np.stack(img_list, axis=0) * 255).astype(np.uint8)
                     video_array = np.transpose(video_array, (0, 3, 1, 2))
                     wandb.log(
-                        {f"{cam_name}_view": wandb.Video(video_array, fps=20, format="gif",
-                                                         caption=f"Reward: {reward_sum:.2f}")})
+                        {f"{cam_name}_view": wandb.Video(video_array, fps=20, format="mp4",
+                                                         caption=f"Reward: {reward_sum:.2f}")}, step=self.roll_out + 1)
+        self.current_restore_step = 0
         self.roll_out += 1
 
     def _on_training_end(self) -> None:
@@ -136,7 +143,6 @@ def setup_wandb(parser_config, exp_name, tags=None):
         name=exp_name,
         config=parser_config,
         monitor_gym=True,
-        sync_tensorboard=True,  # auto-upload sb3's tensorboard metrics
         save_code=True,  # optional
         tags=tags,
     )

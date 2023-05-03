@@ -6,8 +6,8 @@ from stable_baselines3.dapg import DAPG
 from stable_baselines3.ppo import PPO
 
 if __name__ == '__main__':
-    checkpoint_path = "eval_checkpoint/imagination/ppo_imagination-goal_robot-mustard_bottle-normal_pn-100/model/model_900.zip"
-    use_visual_obs = True
+    checkpoint_path = "results/ppo-mustard_bottle-larger_contact_reward-100/model/model_800.zip"
+    use_visual_obs = False
     if "imagination" not in checkpoint_path:
         object_name = checkpoint_path.split("/")[-3].split("-")[1]
     else:
@@ -37,6 +37,7 @@ if __name__ == '__main__':
     else:
         raise NotImplementedError
 
+    print(env.observation_space)
     viewer = env.render(mode="human")
 
     done = False
@@ -45,7 +46,7 @@ if __name__ == '__main__':
     while not viewer.closed:
         reward_sum = 0
         obs = env.reset()
-        for i in range(250):
+        for i in range(env.horizon):
             if manual_action:
                 action = np.concatenate([np.array([0, 0, 0.1, 0, 0, 0]), action[6:]])
             else:

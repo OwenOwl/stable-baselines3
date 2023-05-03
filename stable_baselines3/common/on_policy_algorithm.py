@@ -49,27 +49,27 @@ class OnPolicyAlgorithm(BaseAlgorithm):
     """
 
     def __init__(
-        self,
-        policy: Union[str, Type[ActorCriticPolicy]],
-        env: Union[GymEnv, str],
-        learning_rate: Union[float, Schedule],
-        n_steps: int,
-        gamma: float,
-        gae_lambda: float,
-        ent_coef: float,
-        vf_coef: float,
-        max_grad_norm: float,
-        use_sde: bool,
-        sde_sample_freq: int,
-        tensorboard_log: Optional[str] = None,
-        create_eval_env: bool = False,
-        monitor_wrapper: bool = True,
-        policy_kwargs: Optional[Dict[str, Any]] = None,
-        verbose: int = 0,
-        seed: Optional[int] = None,
-        device: Union[th.device, str] = "auto",
-        _init_setup_model: bool = True,
-        supported_action_spaces: Optional[Tuple[gym.spaces.Space, ...]] = None,
+            self,
+            policy: Union[str, Type[ActorCriticPolicy]],
+            env: Union[GymEnv, str],
+            learning_rate: Union[float, Schedule],
+            n_steps: int,
+            gamma: float,
+            gae_lambda: float,
+            ent_coef: float,
+            vf_coef: float,
+            max_grad_norm: float,
+            use_sde: bool,
+            sde_sample_freq: int,
+            tensorboard_log: Optional[str] = None,
+            create_eval_env: bool = False,
+            monitor_wrapper: bool = True,
+            policy_kwargs: Optional[Dict[str, Any]] = None,
+            verbose: int = 0,
+            seed: Optional[int] = None,
+            device: Union[th.device, str] = "auto",
+            _init_setup_model: bool = True,
+            supported_action_spaces: Optional[Tuple[gym.spaces.Space, ...]] = None,
     ):
 
         super().__init__(
@@ -96,7 +96,10 @@ class OnPolicyAlgorithm(BaseAlgorithm):
         self.max_grad_norm = max_grad_norm
         self.rollout_buffer = None
 
-        self.last_rollout_reward = 0
+        self.last_rollout_reward = -np.inf
+        self.need_restore = False
+        self.last_policy_saved: List[Dict] = [{}, {}]
+        self.current_restore_step = 0
 
         if _init_setup_model:
             self._setup_model()
@@ -126,11 +129,11 @@ class OnPolicyAlgorithm(BaseAlgorithm):
         self.policy = self.policy.to(self.device)
 
     def collect_rollouts(
-        self,
-        env: VecEnv,
-        callback: BaseCallback,
-        rollout_buffer: RolloutBuffer,
-        n_rollout_steps: int,
+            self,
+            env: VecEnv,
+            callback: BaseCallback,
+            rollout_buffer: RolloutBuffer,
+            n_rollout_steps: int,
     ) -> bool:
         """
         Collect experiences using the current policy and fill a ``RolloutBuffer``.
@@ -149,6 +152,7 @@ class OnPolicyAlgorithm(BaseAlgorithm):
         # Switch to eval mode (this affects batch norm / dropout)
         self.policy.set_training_mode(False)
 
+        last_episode_reward = self.last_rollout_reward
         self.last_rollout_reward = 0
         num_rollouts = 0
 
@@ -197,9 +201,9 @@ class OnPolicyAlgorithm(BaseAlgorithm):
             # see GitHub issue #633
             for idx, done in enumerate(dones):
                 if (
-                    done
-                    and infos[idx].get("terminal_observation") is not None
-                    and infos[idx].get("TimeLimit.truncated", False)
+                        done
+                        and infos[idx].get("terminal_observation") is not None
+                        and infos[idx].get("TimeLimit.truncated", False)
                 ):
                     terminal_obs = self.policy.obs_to_tensor(infos[idx]["terminal_observation"])[0]
                     with th.no_grad():
@@ -222,6 +226,15 @@ class OnPolicyAlgorithm(BaseAlgorithm):
         rollout_buffer.compute_returns_and_advantage(last_values=values, dones=dones)
 
         self.last_rollout_reward /= num_rollouts
+        reward_gap = last_episode_reward - self.last_rollout_reward
+        if reward_gap > max(20.0, last_episode_reward * 0.2):
+            self.need_restore = True
+            self.current_restore_step += 1
+            if self.current_restore_step < 5:
+                self.last_rollout_reward = last_episode_reward
+        else:
+            self.need_restore = False
+            self.current_restore_step = 0
 
         callback.on_rollout_end()
 
@@ -235,21 +248,22 @@ class OnPolicyAlgorithm(BaseAlgorithm):
         raise NotImplementedError
 
     def learn(
-        self,
-        total_timesteps: int,
-        callback: MaybeCallback = None,
-        log_interval: int = 1,
-        eval_env: Optional[GymEnv] = None,
-        eval_freq: int = -1,
-        n_eval_episodes: int = 5,
-        tb_log_name: str = "OnPolicyAlgorithm",
-        eval_log_path: Optional[str] = None,
-        reset_num_timesteps: bool = True,
+            self,
+            total_timesteps: int,
+            callback: MaybeCallback = None,
+            log_interval: int = 1,
+            eval_env: Optional[GymEnv] = None,
+            eval_freq: int = -1,
+            n_eval_episodes: int = 5,
+            tb_log_name: str = "OnPolicyAlgorithm",
+            eval_log_path: Optional[str] = None,
+            reset_num_timesteps: bool = True,
     ) -> "OnPolicyAlgorithm":
         iteration = 0
 
         total_timesteps, callback = self._setup_learn(
-            total_timesteps, eval_env, callback, eval_freq, n_eval_episodes, eval_log_path, reset_num_timesteps, tb_log_name
+            total_timesteps, eval_env, callback, eval_freq, n_eval_episodes, eval_log_path, reset_num_timesteps,
+            tb_log_name
         )
 
         callback.on_training_start(locals(), globals())
@@ -257,11 +271,20 @@ class OnPolicyAlgorithm(BaseAlgorithm):
         while self.num_timesteps < total_timesteps:
 
             x = time.time()
-            continue_training = self.collect_rollouts(self.env, callback, self.rollout_buffer, n_rollout_steps=self.n_steps)
+            continue_training = self.collect_rollouts(self.env, callback, self.rollout_buffer,
+                                                      n_rollout_steps=self.n_steps)
             print("Rollout time:", time.time() - x)
 
             if continue_training is False:
                 break
+
+            if self.need_restore and self.current_restore_step < 5:
+                print(f"Large performance drop detected. Restore previous model.")
+                self.set_parameters(self.last_policy_saved[0], exact_match=True, device=self.device)
+                continue
+            else:
+                self.last_policy_saved[0] = self.last_policy_saved[1]
+                self.last_policy_saved[1] = self.get_parameters()
 
             iteration += 1
             self._update_current_progress_remaining(self.num_timesteps, total_timesteps)
@@ -269,15 +292,17 @@ class OnPolicyAlgorithm(BaseAlgorithm):
             # Display training infos
             if log_interval is not None and iteration % log_interval == 0:
                 fps = int((self.num_timesteps - self._num_timesteps_at_start) / (time.time() - self.start_time))
-                self.logger.record("time/iterations", iteration, exclude="tensorboard")
+                self.logger.record("time/iterations", iteration, exclude="wandb")
                 self.logger.record("rollout/rollout_rew_mean", self.last_rollout_reward)
                 if len(self.ep_info_buffer) > 0 and len(self.ep_info_buffer[0]) > 0:
-                    self.logger.record("rollout/ep_rew_mean", safe_mean([ep_info["r"] for ep_info in self.ep_info_buffer]))
-                    self.logger.record("rollout/ep_len_mean", safe_mean([ep_info["l"] for ep_info in self.ep_info_buffer]))
+                    self.logger.record("rollout/ep_rew_mean",
+                                       safe_mean([ep_info["r"] for ep_info in self.ep_info_buffer]))
+                    self.logger.record("rollout/ep_len_mean",
+                                       safe_mean([ep_info["l"] for ep_info in self.ep_info_buffer]))
                 self.logger.record("time/fps", fps)
                 self.logger.record("time/time_elapsed", int(time.time() - self.start_time), exclude="tensorboard")
                 self.logger.record("time/total_timesteps", self.num_timesteps, exclude="tensorboard")
-                self.logger.dump(step=self.num_timesteps)
+                self.logger.dump(step=iteration)
 
             self.train()
 
@@ -289,3 +314,14 @@ class OnPolicyAlgorithm(BaseAlgorithm):
         state_dicts = ["policy", "policy.optimizer"]
 
         return state_dicts, []
+
+    def _excluded_save_params(self) -> List[str]:
+        """
+        Returns the names of the parameters that should be excluded from being
+        saved by pickling. E.g. replay buffers are skipped by default
+        as they take up a lot of space. PyTorch variables should be excluded
+        with this so they can be stored with ``th.save``.
+
+        :return: List of parameters that should be excluded from being saved with pickle.
+        """
+        return super()._excluded_save_params() + ["last_policy_saved"]

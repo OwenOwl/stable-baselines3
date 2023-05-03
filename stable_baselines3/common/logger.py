@@ -10,13 +10,13 @@ from typing import Any, Dict, List, Optional, Sequence, TextIO, Tuple, Union
 import numpy as np
 import pandas
 import torch as th
+import wandb
 from matplotlib import pyplot as plt
 
 try:
     from torch.utils.tensorboard import SummaryWriter
 except ImportError:
     SummaryWriter = None
-
 
 DEBUG = 10
 INFO = 20
@@ -92,7 +92,8 @@ class KVWriter:
     Key Value writer
     """
 
-    def write(self, key_values: Dict[str, Any], key_excluded: Dict[str, Union[str, Tuple[str, ...]]], step: int = 0) -> None:
+    def write(self, key_values: Dict[str, Any], key_excluded: Dict[str, Union[str, Tuple[str, ...]]],
+              step: int = 0) -> None:
         """
         Write a dictionary to file
 
@@ -176,7 +177,7 @@ class HumanOutputFormat(KVWriter, SeqWriter):
                 key2str[self._truncate(tag)] = ""
             # Remove tag from key
             if tag is not None and tag in key:
-                key = str("   " + key[len(tag) :])
+                key = str("   " + key[len(tag):])
 
             truncated_key = self._truncate(key)
             if truncated_key in key2str:
@@ -229,7 +230,7 @@ class HumanOutputFormat(KVWriter, SeqWriter):
 
 
 def filter_excluded_keys(
-    key_values: Dict[str, Any], key_excluded: Dict[str, Union[str, Tuple[str, ...]]], _format: str
+        key_values: Dict[str, Any], key_excluded: Dict[str, Union[str, Tuple[str, ...]]], _format: str
 ) -> Dict[str, Any]:
     """
     Filters the keys specified by ``key_exclude`` for the specified format
@@ -256,7 +257,8 @@ class JSONOutputFormat(KVWriter):
     def __init__(self, filename: str):
         self.file = open(filename, "wt")
 
-    def write(self, key_values: Dict[str, Any], key_excluded: Dict[str, Union[str, Tuple[str, ...]]], step: int = 0) -> None:
+    def write(self, key_values: Dict[str, Any], key_excluded: Dict[str, Union[str, Tuple[str, ...]]],
+              step: int = 0) -> None:
         def cast_to_json_serializable(value: Any):
             if isinstance(value, Video):
                 raise FormatUnsupportedError(["json"], "video")
@@ -301,7 +303,8 @@ class CSVOutputFormat(KVWriter):
         self.separator = ","
         self.quotechar = '"'
 
-    def write(self, key_values: Dict[str, Any], key_excluded: Dict[str, Union[str, Tuple[str, ...]]], step: int = 0) -> None:
+    def write(self, key_values: Dict[str, Any], key_excluded: Dict[str, Union[str, Tuple[str, ...]]],
+              step: int = 0) -> None:
         # Add our current row to the history
         key_values = filter_excluded_keys(key_values, key_excluded, "csv")
         extra_keys = key_values.keys() - self.keys
@@ -363,7 +366,8 @@ class TensorBoardOutputFormat(KVWriter):
         assert SummaryWriter is not None, "tensorboard is not installed, you can use " "pip install tensorboard to do so"
         self.writer = SummaryWriter(log_dir=folder)
 
-    def write(self, key_values: Dict[str, Any], key_excluded: Dict[str, Union[str, Tuple[str, ...]]], step: int = 0) -> None:
+    def write(self, key_values: Dict[str, Any], key_excluded: Dict[str, Union[str, Tuple[str, ...]]],
+              step: int = 0) -> None:
 
         for (key, value), (_, excluded) in zip(sorted(key_values.items()), sorted(key_excluded.items())):
 
@@ -401,6 +405,41 @@ class TensorBoardOutputFormat(KVWriter):
             self.writer = None
 
 
+class WandbOutputFormat(KVWriter):
+    """
+    Dumps key/value pairs into TensorBoard's numeric format.
+
+    :param folder: the folder to write the log to
+    """
+
+    def __init__(self, folder: str):
+        pass
+
+    def write(self, key_values: Dict[str, Any], key_excluded: Dict[str, Union[str, Tuple[str, ...]]],
+              step: int = 0) -> None:
+
+        write_dict = {}
+        for (key, value), (_, excluded) in zip(sorted(key_values.items()), sorted(key_excluded.items())):
+
+            if excluded is not None and "wandb" in excluded:
+                continue
+
+            if isinstance(value, np.ScalarType):
+                write_dict[key] = value
+
+            if isinstance(value, th.Tensor):
+                write_dict[key] = value.item()
+
+        # Flush the output to the file
+        wandb.log(write_dict, step=step)
+
+    def close(self) -> None:
+        """
+        closes the file
+        """
+        pass
+
+
 def make_output_format(_format: str, log_dir: str, log_suffix: str = "") -> KVWriter:
     """
     return a logger for the requested format
@@ -421,6 +460,8 @@ def make_output_format(_format: str, log_dir: str, log_suffix: str = "") -> KVWr
         return CSVOutputFormat(os.path.join(log_dir, f"progress{log_suffix}.csv"))
     elif _format == "tensorboard":
         return TensorBoardOutputFormat(log_dir)
+    elif _format == "wandb":
+        return WandbOutputFormat(log_dir)
     else:
         raise ValueError(f"Unknown format specified: {_format}")
 
@@ -603,6 +644,7 @@ def configure(folder: Optional[str] = None, format_strings: Optional[List[str]] 
     if format_strings is None:
         format_strings = os.getenv("SB3_LOG_FORMAT", "stdout,log,csv").split(",")
 
+    format_strings.append("wandb")
     format_strings = list(filter(None, format_strings))
     output_formats = [make_output_format(f, folder, log_suffix) for f in format_strings]
 
