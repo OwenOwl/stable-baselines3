@@ -105,7 +105,7 @@ if __name__ == '__main__':
             model_save_freq=50,
             model_save_path=str(result_path / "model"),
             eval_env_fn=create_eval_env_fn,
-            eval_freq=25,
+            eval_freq=100,
             eval_cam_names=["relocate_viz"],
         ),
     )
