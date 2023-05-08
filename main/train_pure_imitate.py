@@ -14,9 +14,8 @@ def create_env(object_name, use_visual_obs, object_category="HOI4D", use_gui=Fal
     from hand_teleop.env.rl_env.imitation_env import ImitationEnv
     from hand_teleop.real_world import task_setting
     from hand_teleop.env.sim_env.constructor import add_default_scene_light
-    robot_name = "mano_hand_free"
     frame_skip = 1
-    env_params = dict(robot_name=robot_name, use_gui=use_gui, frame_skip=frame_skip, no_rgb=True)
+    env_params = dict(use_gui=use_gui, frame_skip=frame_skip, no_rgb=True)
     if is_eval:
         env_params["no_rgb"] = False
         env_params["need_offscreen_render"] = True
