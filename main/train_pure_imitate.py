@@ -11,7 +11,7 @@ from stable_baselines3.ppo import PPO
 from datetime import datetime
 
 def create_env(use_visual_obs, use_gui=False, is_eval=False, obj_scale=1.0,
-               reward_args=np.zeros(5), data_id=0, randomness_scale=1, pc_noise=True):
+               reward_args=np.zeros(3), data_id=0, randomness_scale=1, pc_noise=True):
     import os
     from hand_teleop.env.rl_env.imitation_env import ImitationEnv
     from hand_teleop.real_world import task_setting
@@ -48,7 +48,7 @@ if __name__ == '__main__':
     parser.add_argument('--iter', type=int, default=5000)
     parser.add_argument('--randomness', type=float, default=1.0)
     parser.add_argument('--exp', type=str)
-    parser.add_argument('--reward', type=float, nargs="+", default=[10,0.5,0.1,10,0.5])
+    parser.add_argument('--reward', type=float, nargs="+", default=[1, 0.05, 0.01])
     parser.add_argument('--objscale', type=float, default=1.0)
     parser.add_argument('--dataid', type=int, default=0)
 
@@ -60,7 +60,7 @@ if __name__ == '__main__':
     env_iter = args.iter * horizon * args.n
     reward_args = args.reward
     data_id = args.dataid
-    assert(len(reward_args) >= 5)
+    assert(len(reward_args) >= 3)
     obj_scale = args.objscale
 
     config = {
