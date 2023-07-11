@@ -13,7 +13,7 @@ from datetime import datetime
 def create_env(use_visual_obs, use_gui=False, is_eval=False, obj_scale=1.0, obj_name="tomato_soup_can",
                reward_args=np.zeros(3), data_id=0, randomness_scale=1, pc_noise=True):
     import os
-    from hand_teleop.env.rl_env.imitation_env import ImitationEnv
+    from hand_teleop.env.rl_env.imitation_pick_env import ImitationPickEnv
     from hand_teleop.real_world import task_setting
     from hand_teleop.env.sim_env.constructor import add_default_scene_light
     frame_skip = 1
@@ -26,7 +26,7 @@ def create_env(use_visual_obs, use_gui=False, is_eval=False, obj_scale=1.0, obj_
     # Specify rendering device if the computing device is given
     if "CUDA_VISIBLE_DEVICES" in os.environ:
         env_params["device"] = "cuda"
-    env = ImitationEnv(**env_params)
+    env = ImitationPickEnv(**env_params)
 
     if use_visual_obs:
         raise NotImplementedError
