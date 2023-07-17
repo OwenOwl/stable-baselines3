@@ -57,7 +57,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     randomness = args.randomness
     now = datetime.now()
-    exp_keywords = [args.exp, "seq"+str(args.dataid), "x"+str(args.objscale), ",".join(str(i) for i in args.reward)]
+    exp_keywords = [args.exp, "seq"+str(args.dataid), str(args.objname), ",".join(str(i) for i in args.reward)]
     horizon = 200
     env_iter = args.iter * horizon * args.n
     reward_args = args.reward
