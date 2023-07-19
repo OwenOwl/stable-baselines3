@@ -38,33 +38,39 @@ def create_env(use_visual_obs, use_gui=False, is_eval=False, obj_scale=1.0, obj_
     return env
 
 
+import os, tqdm, pickle
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--n', type=int, default=100)
-    parser.add_argument('--randomness', type=float, default=1.0)
-    parser.add_argument('--reward', type=float, nargs="+", default=[1, 0.05, 0.01])
-    parser.add_argument('--objscale', type=float, default=1.0)
-    parser.add_argument('--objname', type=str, default="tomato_soup_can")
-    parser.add_argument('--dataid', type=int, default=0)
+    model_list_path = "/home/lixing/results/result-0718"
+    model_list = os.listdir(model_list_path)
 
-    args = parser.parse_args()
-    randomness = args.randomness
-    horizon = 200
-    reward_args = args.reward
-    data_id = args.dataid
-    assert(len(reward_args) >= 3)
-    obj_scale = args.objscale
-    obj_name = args.objname
-
-    env = create_env(use_visual_obs=False, obj_scale=obj_scale, obj_name=obj_name,
-                     data_id=data_id, randomness_scale=randomness)
+    data = []
     
-    model_path = "/home/lixing/results/result-test/model_test.zip"
+    for model_exp in tqdm.tqdm(model_list):
+        model_args = model_exp.split("-")
+        data_id = int(model_args[1][3:])
+        obj_scale = 1.0
+        obj_name = model_args[2]
+        randomness = 1.0
 
-    model = PPO.load(path=model_path, env=None)
+        env = create_env(use_visual_obs=False, obj_scale=obj_scale, obj_name=obj_name,
+                         data_id=data_id, randomness_scale=randomness)
 
-    obs = env.reset()
-    for i in range(env.horizon):
-        action = model.policy.predict(observation=obs, deterministic=True)[0]
-        obs, reward, done, _ = env.step(action)
-        print(reward)
+        model_path = os.path.join(model_list_path, model_exp, "model/model_1000.zip")
+
+        model = PPO.load(path=model_path, env=None)
+
+        observations, actions = [], []
+        obs = env.reset()
+        for i in range(env.horizon):
+            action = model.policy.predict(observation=obs, deterministic=True)[0]
+            observations.append(obs)
+            actions.append(action)
+            obs, reward, done, _ = env.step(action)
+        observations = np.stack(observations, axis=0)
+        actions = np.stack(actions, axis=0)
+        trajectory = {"observations" : observations, "actions" : actions}
+        data.append(trajectory)
+    
+    save_file = open(os.path.join(model_list_path, "data-0718.pkl"), "wb")
+    pickle.dump(data, save_file)
+    save_file.close()
