@@ -67,6 +67,7 @@ if __name__ == '__main__':
             actions.append(action)
             obs, reward, done, _ = env.step(action)
         observations = np.stack(observations, axis=0)
+        observations = np.delete(observations, 39, 1) # Delete timestamp observation
         actions = np.stack(actions, axis=0)
         trajectory = {"observations" : observations, "actions" : actions}
         data.append(trajectory)
