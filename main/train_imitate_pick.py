@@ -16,7 +16,7 @@ def create_env(use_visual_obs, use_gui=False, is_eval=False, obj_scale=1.0, obj_
     from hand_teleop.env.rl_env.imitation_pick_env import ImitationPickEnv
     from hand_teleop.real_world import task_setting
     from hand_teleop.env.sim_env.constructor import add_default_scene_light
-    frame_skip = 1
+    frame_skip = 5
     env_params = dict(reward_args=reward_args, object_scale=obj_scale, object_name=obj_name, data_id=data_id,
                       use_gui=use_gui, frame_skip=frame_skip, no_rgb=True)
     if is_eval:

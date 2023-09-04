@@ -56,7 +56,7 @@ def create_lab_env(use_visual_obs, use_gui=True, obj_scale=1.0, obj_name="tomato
 
 import os, tqdm, pickle
 if __name__ == '__main__':
-    model_list_path = "/home/lixing/results/result-0726"
+    model_list_path = "/home/lixing/results/result-0829"
     model_list = os.listdir(model_list_path)
 
     data = []
@@ -72,8 +72,8 @@ if __name__ == '__main__':
                          data_id=data_id, randomness_scale=randomness)
         lab_env = create_lab_env(use_visual_obs=False, obj_scale=obj_scale, obj_name=obj_name,
                                  randomness_scale=randomness)
-        env.set_seed(0)
-        lab_env.set_seed(0)
+        env.set_seed(1)
+        lab_env.set_seed(1)
 
         observations, actions = [], []
         obs = env.reset()
@@ -93,7 +93,7 @@ if __name__ == '__main__':
         # env.viewer = viewer
         # viewer.toggle_pause(True)
 
-        model_path = os.path.join(model_list_path, model_exp, "model/model_1000.zip")
+        model_path = os.path.join(model_list_path, model_exp, "model/model_5000.zip")
         model = PPO.load(path=model_path, env=None)
 
         # IK Initial xarm pose by pinocchio
