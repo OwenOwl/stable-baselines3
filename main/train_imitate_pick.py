@@ -51,20 +51,26 @@ if __name__ == '__main__':
     parser.add_argument('--exp', type=str)
     parser.add_argument('--reward', type=float, nargs="+", default=[1, 0.05, 0.01])
     parser.add_argument('--objscale', type=float, default=1.0)
-    parser.add_argument('--objname', type=str, default="tomato_soup_can")
+    parser.add_argument('--objcat', type=str, default="auto")
+    parser.add_argument('--objname', type=str, default="auto")
     parser.add_argument('--dataid', type=int, default=0)
 
     args = parser.parse_args()
     randomness = args.randomness
     now = datetime.now()
-    exp_keywords = [args.exp, "seq"+str(args.dataid), str(args.objname), ",".join(str(i) for i in args.reward)]
+    exp_keywords = [args.exp, str(args.dataid)]
+    if str(args.objcat) != "auto":
+        exp_keywords.append(str(args.objcat))
+    if str(args.objname) != "auto":
+        exp_keywords.append(str(args.objname))
+    exp_keywords.append(",".join(str(i) for i in args.reward))
     horizon = 200
     env_iter = args.iter * horizon * args.n
     reward_args = args.reward
     data_id = args.dataid
     assert(len(reward_args) >= 3)
     obj_scale = args.objscale
-    obj_name = args.objname
+    obj_name = (args.objcat, args.objname)
 
     config = {
         'n_env_horizon': args.n,

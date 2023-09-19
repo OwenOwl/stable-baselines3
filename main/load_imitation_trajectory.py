@@ -81,11 +81,11 @@ if __name__ == '__main__':
 
         from sapien.utils import Viewer
         from hand_teleop.env.sim_env.constructor import add_default_scene_light
-        viewer = Viewer(lab_env.renderer)
-        viewer.set_scene(lab_env.scene)
-        add_default_scene_light(lab_env.scene, lab_env.renderer)
-        lab_env.viewer = viewer
-        viewer.toggle_pause(True)
+        # viewer = Viewer(lab_env.renderer)
+        # viewer.set_scene(lab_env.scene)
+        # add_default_scene_light(lab_env.scene, lab_env.renderer)
+        # lab_env.viewer = viewer
+        # viewer.toggle_pause(True)
 
         # viewer = Viewer(env.renderer)
         # viewer.set_scene(env.scene)
@@ -110,7 +110,7 @@ if __name__ == '__main__':
         lab_qpos = lab_IK_model.compute_inverse_kinematics(ee_link_id, palm_pose, lab_init_qpos, arm_qmask)
         lab_env.robot.set_qpos(np.concatenate([lab_qpos[0][:lab_env.arm_dof], env.robot.get_qpos()[6:]]))
         lab_env.robot.set_drive_target(lab_env.robot.get_qpos())
-        lab_env.render()
+        # lab_env.render()
         # env.render()
 
         for i in range(env.horizon):
@@ -141,8 +141,8 @@ if __name__ == '__main__':
             # print((pose2.p - pose1.p) - delta_pose[:3])
             # print(env.palm_link.get_pose().inv() * lab_env.palm_link.get_pose())
 
-            for _ in range(5):
-                lab_env.render()
+            # for _ in range(5):
+                # lab_env.render()
                 # env.render()
             palm_pose = lab_pose_inv * lab_env.palm_link.get_pose()
         
