@@ -56,22 +56,28 @@ def create_lab_env(use_visual_obs, use_gui=True, obj_scale=1.0, obj_name="tomato
 
 import os, tqdm, pickle
 if __name__ == '__main__':
-    model_list_path = "/home/lixing/results/result-0829"
+    model_list_path = "/home/lixing/results/result-0926"
     model_list = os.listdir(model_list_path)
 
     data = []
     
     for model_exp in tqdm.tqdm(model_list):
         model_args = model_exp.split("-")
-        data_id = int(model_args[1][3:])
-        obj_scale = 1.0
-        obj_name = model_args[2]
+        data_id = int(model_args[1])
         randomness = 1.0
 
-        env = create_env(use_visual_obs=False, obj_scale=obj_scale, obj_name=obj_name,
+        from hoi4d_data.hoi4d_config import hoi4d_config
+        object_cat = hoi4d_config.data_list[data_id]["obj_cat"]
+        object_name = hoi4d_config.data_list[data_id]["seq_path"].split('/')[3].replace('N', '0')
+
+        env = create_env(use_visual_obs=False, obj_scale=1.0, obj_name=(object_cat, object_name),
                          data_id=data_id, randomness_scale=randomness)
-        lab_env = create_lab_env(use_visual_obs=False, obj_scale=obj_scale, obj_name=obj_name,
+        lab_env = create_lab_env(use_visual_obs=False, obj_scale=1.0, obj_name=(object_cat, object_name),
                                  randomness_scale=randomness)
+        
+        env.rl_step = env.ability_sim_step_deterministic
+        lab_env.rl_step = lab_env.ability_arm_sim_step
+
         env.set_seed(1)
         lab_env.set_seed(1)
 
@@ -81,11 +87,11 @@ if __name__ == '__main__':
 
         from sapien.utils import Viewer
         from hand_teleop.env.sim_env.constructor import add_default_scene_light
-        # viewer = Viewer(lab_env.renderer)
-        # viewer.set_scene(lab_env.scene)
-        # add_default_scene_light(lab_env.scene, lab_env.renderer)
-        # lab_env.viewer = viewer
-        # viewer.toggle_pause(True)
+        viewer = Viewer(lab_env.renderer)
+        viewer.set_scene(lab_env.scene)
+        add_default_scene_light(lab_env.scene, lab_env.renderer)
+        lab_env.viewer = viewer
+        viewer.toggle_pause(True)
 
         # viewer = Viewer(env.renderer)
         # viewer.set_scene(env.scene)
@@ -93,7 +99,7 @@ if __name__ == '__main__':
         # env.viewer = viewer
         # viewer.toggle_pause(True)
 
-        model_path = os.path.join(model_list_path, model_exp, "model/model_5000.zip")
+        model_path = os.path.join(model_list_path, model_exp, "model/model_2000.zip")
         model = PPO.load(path=model_path, env=None)
 
         # IK Initial xarm pose by pinocchio
@@ -110,7 +116,8 @@ if __name__ == '__main__':
         lab_qpos = lab_IK_model.compute_inverse_kinematics(ee_link_id, palm_pose, lab_init_qpos, arm_qmask)
         lab_env.robot.set_qpos(np.concatenate([lab_qpos[0][:lab_env.arm_dof], env.robot.get_qpos()[6:]]))
         lab_env.robot.set_drive_target(lab_env.robot.get_qpos())
-        # lab_env.render()
+        
+        lab_env.render()
         # env.render()
 
         for i in range(env.horizon):
@@ -130,20 +137,21 @@ if __name__ == '__main__':
             delta_pose = np.concatenate([palm_next_pose.p - palm_pose.p, delta_axis_world * delta_angle])
             # print(delta_pose)
 
-            hand_qpos = action[6:]
-            lab_action = np.concatenate([delta_pose / env.scene.get_timestep(), hand_qpos])
+            hand_qpos_action = action[6:]
+            lab_action = np.concatenate([delta_pose / env.scene.get_timestep(), hand_qpos_action])
             
             pose1 = lab_env.palm_link.get_pose()
             _, _, _, _ = lab_env.step(lab_action)
             pose2 = lab_env.palm_link.get_pose()
 
-            print(env.robot.get_qpos()[6:] - lab_env.robot.get_qpos()[6:])
+            # print(env.robot.get_qpos()[6:] - lab_env.robot.get_qpos()[6:])
             # print((pose2.p - pose1.p) - delta_pose[:3])
             # print(env.palm_link.get_pose().inv() * lab_env.palm_link.get_pose())
 
-            # for _ in range(5):
-                # lab_env.render()
+            for _ in range(5):
+                lab_env.render()
                 # env.render()
+            
             palm_pose = lab_pose_inv * lab_env.palm_link.get_pose()
         
         # observations = np.stack(observations, axis=0)
