@@ -34,13 +34,13 @@ def create_env(use_visual_obs, use_gui=True, obj_scale=1.0, obj_name="tomato_sou
     return env
 
 def create_lab_env(use_visual_obs, use_gui=True, obj_scale=1.0, obj_name="tomato_soup_can",
-                   randomness_scale=1, pc_noise=True):
+                   obj_init_orientation=np.array([1, 0, 0, 0]), randomness_scale=1, pc_noise=True):
     import os
     from hand_teleop.env.rl_env.free_pick_env import FreePickEnv
     from hand_teleop.real_world import task_setting
     from hand_teleop.env.sim_env.constructor import add_default_scene_light
-    frame_skip = 1
-    env_params = dict(object_scale=obj_scale, object_name=obj_name,
+    frame_skip = 5
+    env_params = dict(object_scale=obj_scale, object_name=obj_name, obj_init_orientation=obj_init_orientation,
                       use_gui=use_gui, frame_skip=frame_skip, no_rgb=True)
 
     # Specify rendering device if the computing device is given
@@ -56,7 +56,7 @@ def create_lab_env(use_visual_obs, use_gui=True, obj_scale=1.0, obj_name="tomato
 
 import os, tqdm, pickle
 if __name__ == '__main__':
-    model_list_path = "/home/lixing/results/result-0926"
+    model_list_path = "/home/lixing/results/result-1004"
     model_list = os.listdir(model_list_path)
 
     data = []
@@ -73,7 +73,7 @@ if __name__ == '__main__':
         env = create_env(use_visual_obs=False, obj_scale=1.0, obj_name=(object_cat, object_name),
                          data_id=data_id, randomness_scale=randomness)
         lab_env = create_lab_env(use_visual_obs=False, obj_scale=1.0, obj_name=(object_cat, object_name),
-                                 randomness_scale=randomness)
+                                 obj_init_orientation=env.init_orientation, randomness_scale=randomness)
         
         env.rl_step = env.ability_sim_step_deterministic
         lab_env.rl_step = lab_env.ability_arm_sim_step
@@ -83,15 +83,16 @@ if __name__ == '__main__':
 
         observations, actions = [], []
         obs = env.reset()
-        _ = lab_env.reset()
+        lab_obs = lab_env.reset()
 
         from sapien.utils import Viewer
         from hand_teleop.env.sim_env.constructor import add_default_scene_light
-        viewer = Viewer(lab_env.renderer)
-        viewer.set_scene(lab_env.scene)
-        add_default_scene_light(lab_env.scene, lab_env.renderer)
-        lab_env.viewer = viewer
-        viewer.toggle_pause(True)
+
+        # viewer = Viewer(lab_env.renderer)
+        # viewer.set_scene(lab_env.scene)
+        # add_default_scene_light(lab_env.scene, lab_env.renderer)
+        # lab_env.viewer = viewer
+        # viewer.toggle_pause(True)
 
         # viewer = Viewer(env.renderer)
         # viewer.set_scene(env.scene)
@@ -117,13 +118,11 @@ if __name__ == '__main__':
         lab_env.robot.set_qpos(np.concatenate([lab_qpos[0][:lab_env.arm_dof], env.robot.get_qpos()[6:]]))
         lab_env.robot.set_drive_target(lab_env.robot.get_qpos())
         
-        lab_env.render()
+        # lab_env.render()
         # env.render()
 
         for i in range(env.horizon):
             action = model.policy.predict(observation=obs, deterministic=True)[0]
-            # observations.append(obs)
-            # actions.append(action)
             obs, reward, done, _ = env.step(action)
             # import ipdb; ipdb.set_trace()
             
@@ -138,7 +137,10 @@ if __name__ == '__main__':
             # print(delta_pose)
 
             hand_qpos_action = action[6:]
-            lab_action = np.concatenate([delta_pose / env.scene.get_timestep(), hand_qpos_action])
+            lab_action = np.concatenate([delta_pose / env.scene.get_timestep() / env.frame_skip, hand_qpos_action])
+
+            observations.append(lab_obs)
+            actions.append(lab_action)
             
             pose1 = lab_env.palm_link.get_pose()
             _, _, _, _ = lab_env.step(lab_action)
@@ -149,17 +151,17 @@ if __name__ == '__main__':
             # print(env.palm_link.get_pose().inv() * lab_env.palm_link.get_pose())
 
             for _ in range(5):
-                lab_env.render()
+                pass
+                # lab_env.render()
                 # env.render()
             
             palm_pose = lab_pose_inv * lab_env.palm_link.get_pose()
         
-        # observations = np.stack(observations, axis=0)
-        # observations = np.delete(observations, 39, 1) # Delete timestamp observation
-        # actions = np.stack(actions, axis=0)
-        # trajectory = {"observations" : observations, "actions" : actions}
-        # data.append(trajectory)
+        observations = np.stack(observations, axis=0)
+        actions = np.stack(actions, axis=0)
+        trajectory = {"observations" : observations, "actions" : actions}
+        data.append(trajectory)
     
-    # save_file = open(os.path.join(model_list_path, "data-0718.pkl"), "wb")
-    # pickle.dump(data, save_file)
-    # save_file.close()
+    save_file = open(os.path.join(model_list_path, "data-1004.pkl"), "wb")
+    pickle.dump(data, save_file)
+    save_file.close()

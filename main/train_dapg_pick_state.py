@@ -11,12 +11,12 @@ from stable_baselines3.dapg import DAPG
 from datetime import datetime
 
 def create_env(use_visual_obs, use_gui=False, is_eval=False, obj_scale=1.0, obj_name="tomato_soup_can",
-               reward_args=np.zeros(3), data_id=0, randomness_scale=1, pc_noise=True):
+               reward_args=np.zeros(3), randomness_scale=1, pc_noise=True):
     import os
     from hand_teleop.env.rl_env.free_pick_env import FreePickEnv
     from hand_teleop.real_world import task_setting
     from hand_teleop.env.sim_env.constructor import add_default_scene_light
-    frame_skip = 1
+    frame_skip = 5
     env_params = dict(object_scale=obj_scale, object_name=obj_name, use_gui=use_gui, frame_skip=frame_skip, no_rgb=True)
     if is_eval:
         env_params["no_rgb"] = False 
@@ -49,17 +49,18 @@ if __name__ == '__main__':
     parser.add_argument('--randomness', type=float, default=1.0)
     parser.add_argument('--exp', type=str)
     parser.add_argument('--objscale', type=float, default=1.0)
+    parser.add_argument('--objcat', type=str, default="toycar")
     parser.add_argument('--objname', type=str, default="035")
     parser.add_argument('--dataset_path', type=str)
 
     args = parser.parse_args()
     randomness = args.randomness
     now = datetime.now()
-    exp_keywords = [args.exp, str(args.objname)]
+    exp_keywords = [args.exp, str(args.objcat), str(args.objname)]
     horizon = 200
     env_iter = args.iter * horizon * args.n
     obj_scale = args.objscale
-    obj_name = args.objname
+    obj_name = (args.objcat, args.objname)
 
     config = {
         'n_env_horizon': args.n,
