@@ -10,7 +10,7 @@ from stable_baselines3.ppo import PPO
 
 from datetime import datetime
 
-def create_env(use_visual_obs, use_gui=False, is_eval=False, obj_scale=1.0, obj_name="tomato_soup_can",
+def create_env(use_visual_obs, use_gui=False, is_eval=False, obj_scale=1.0, obj_name=None,
                reward_args=np.zeros(3), data_id=0, randomness_scale=1, pc_noise=True):
     import os
     from hand_teleop.env.rl_env.imitation_pick_env import ImitationPickEnv
