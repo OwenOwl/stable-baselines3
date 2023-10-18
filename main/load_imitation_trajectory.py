@@ -55,20 +55,24 @@ def create_lab_env(use_visual_obs, use_gui=True, obj_scale=1.0, obj_name="tomato
 
 
 import os, tqdm, pickle
+from hoi4d_data.hoi4d_config import hoi4d_config
+from hand_teleop.utils.hoi4d_object_utils import sample_hoi4d_object_pc
 if __name__ == '__main__':
-    model_list_path = "/home/lixing/results/result-1004"
+    SAMPLE_OBJECT_PC_NUM = 64
+    model_list_path = "/home/lixing/results/result-1018"
     model_list = os.listdir(model_list_path)
 
     data = []
     
-    for model_exp in tqdm.tqdm(model_list):
+    for model_exp in tqdm.tqdm(model_list[:5]):
         model_args = model_exp.split("-")
         data_id = int(model_args[1])
         randomness = 1.0
 
-        from hoi4d_data.hoi4d_config import hoi4d_config
         object_cat = hoi4d_config.data_list[data_id]["obj_cat"]
         object_name = hoi4d_config.data_list[data_id]["seq_path"].split('/')[3].replace('N', '0')
+
+        object_pc = sample_hoi4d_object_pc((object_cat, object_name), SAMPLE_OBJECT_PC_NUM)
 
         env = create_env(use_visual_obs=False, obj_scale=1.0, obj_name=(object_cat, object_name),
                          data_id=data_id, randomness_scale=randomness)
@@ -81,7 +85,7 @@ if __name__ == '__main__':
         env.set_seed(1)
         lab_env.set_seed(1)
 
-        observations, actions = [], []
+        observations, actions = {'state': [], 'pc_object': []}, []
         obs = env.reset()
         lab_obs = lab_env.reset()
 
@@ -100,7 +104,7 @@ if __name__ == '__main__':
         # env.viewer = viewer
         # viewer.toggle_pause(True)
 
-        model_path = os.path.join(model_list_path, model_exp, "model/model_2000.zip")
+        model_path = os.path.join(model_list_path, model_exp, "model/model_1950.zip")
         model = PPO.load(path=model_path, env=None)
 
         # IK Initial xarm pose by pinocchio
@@ -139,11 +143,12 @@ if __name__ == '__main__':
             hand_qpos_action = action[6:]
             lab_action = np.concatenate([delta_pose / env.scene.get_timestep() / env.frame_skip, hand_qpos_action])
 
-            observations.append(lab_obs)
+            observations['state'].append(lab_obs)
+            observations['pc_object'].append(object_pc)
             actions.append(lab_action)
             
             pose1 = lab_env.palm_link.get_pose()
-            _, _, _, _ = lab_env.step(lab_action)
+            lab_obs, lab_reward, _, _ = lab_env.step(lab_action)
             pose2 = lab_env.palm_link.get_pose()
 
             # print(env.robot.get_qpos()[6:] - lab_env.robot.get_qpos()[6:])
@@ -157,11 +162,14 @@ if __name__ == '__main__':
             
             palm_pose = lab_pose_inv * lab_env.palm_link.get_pose()
         
-        observations = np.stack(observations, axis=0)
+        observations['state'] = np.stack(observations['state'], axis=0)
+        observations['pc_object'] = np.stack(observations['pc_object'], axis=0)
         actions = np.stack(actions, axis=0)
         trajectory = {"observations" : observations, "actions" : actions}
-        data.append(trajectory)
+        if (lab_reward > 2):
+            data.append(trajectory)
     
-    save_file = open(os.path.join(model_list_path, "data-1004.pkl"), "wb")
+    save_file = open(os.path.join(model_list_path, "data.pkl"), "wb")
     pickle.dump(data, save_file)
     save_file.close()
+    print(len(data))

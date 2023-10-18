@@ -118,7 +118,32 @@ class DictExpertRolloutBuffer(DictRolloutBuffer):
         self.in_memory = load_in_memory
         assert load_in_memory
 
-        if dataset_path.endswith("h5"):
+        if dataset_path.endswith(("pkl", "pickle")):
+            if not load_in_memory:
+                raise RuntimeError(f"Pickle dataset only support in memory load.")
+            self.use_h5 = False
+
+            self.original_data = np.load(dataset_path, allow_pickle=True)
+            data_obs = {}
+            data_action = []
+            for trajectory in self.original_data:
+                for traj_obs_name, traj_obs_data in trajectory['observations'].items():
+                    if traj_obs_name not in data_obs.keys():
+                        data_obs[traj_obs_name] = []
+                    data_obs[traj_obs_name].append(traj_obs_data)
+                data_action.append(trajectory['actions'])
+            for obs_name in data_obs.keys():
+                data_obs[obs_name] = np.concatenate(data_obs[obs_name], axis=0)
+            data_action = np.concatenate(data_action, axis=0)
+
+            buffer_size = data_action.shape[0]
+            for obs_name in data_obs.keys():
+                if data_obs[obs_name].shape[0] != buffer_size:
+                    raise RuntimeError("Demo Dataset Error: Obs num does not match Action num.")
+
+        elif dataset_path.endswith("h5"):
+            self.use_h5 = True
+
             self.original_data = h5py.File(dataset_path, 'r')
             h5_data = self.original_data["data"]
             if "meta_data" in self.original_data.keys():
@@ -134,10 +159,18 @@ class DictExpertRolloutBuffer(DictRolloutBuffer):
             buffer_size, observation_space, action_space, device, gae_lambda, gamma, n_envs=1
         )
 
-        self.actions = h5_action[:]
-        for obs_name, obs_data in h5_obs_dict.items():
-            if obs_name in observation_space.spaces:
-                self.observations[obs_name] = obs_data[:]
+        if not load_in_memory and self.use_h5:
+            raise NotImplementedError
+        elif self.use_h5:
+            self.actions = h5_action[:]
+            for obs_name, obs_data in h5_obs_dict.items():
+                if obs_name in observation_space.spaces:
+                    self.observations[obs_name] = obs_data[:]
+        else:
+            self.actions = data_action[:]
+            for obs_name, obs_data in data_obs.items():
+                if obs_name in observation_space.spaces:
+                    self.observations[obs_name] = obs_data[:]
 
         # Normalize the range of action
         self.actions = np.clip(self.actions, -1, 1)
