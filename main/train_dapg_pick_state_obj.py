@@ -5,7 +5,6 @@ import numpy as np
 
 from hand_env_utils.arg_utils import *
 from hand_env_utils.wandb_callback import WandbCallback, setup_wandb
-from stable_baselines3.common.torch_layers import PointNetStateExtractor
 from stable_baselines3.common.vec_env.subproc_vec_env import SubprocVecEnv
 from stable_baselines3.dapg import DAPG
 
@@ -53,7 +52,7 @@ if __name__ == '__main__':
     parser.add_argument('--objscale', type=float, default=1.0)
     parser.add_argument('--objcat', type=str, default="toycar")
     parser.add_argument('--objname', type=str, default="035")
-    parser.add_argument('--objpc', type=int, default=64)
+    parser.add_argument('--objpc', type=int, default=100)
     parser.add_argument('--dataset_path', type=str)
     parser.add_argument('--use_bn', type=bool, default=True)
     parser.add_argument('--noise_pc', type=bool, default=True)
@@ -93,23 +92,8 @@ if __name__ == '__main__':
     env = SubprocVecEnv([create_env_fn] * args.workers, "spawn")
     
     print(env.observation_space, env.action_space)
-    
-    feature_extractor_class = PointNetStateExtractor
-    feature_extractor_kwargs = {
-        "pc_key": "pc_object",
-        "local_channels": (64, 128, 256),
-        "global_channels": (256,),
-        "use_bn": args.use_bn,
-        "state_mlp_size": (64, 64),
-    }
-    policy_kwargs = {
-        "features_extractor_class": feature_extractor_class,
-        "features_extractor_kwargs": feature_extractor_kwargs,
-        "net_arch": [dict(pi=[64, 64], vf=[64, 64])],
-        "activation_fn": nn.ReLU,
-    }
 
-    model = DAPG("MultiInputPolicy", env, verbose=1,
+    model = DAPG("MlpPolicy", env, verbose=1,
                  dataset_path=args.dataset_path,
                  bc_coef=0.1,
                  bc_decay=0.99,
@@ -119,7 +103,7 @@ if __name__ == '__main__':
                  learning_rate=args.lr,
                  batch_size=args.bs,
                  seed=args.seed,
-                 policy_kwargs=policy_kwargs,
+                 policy_kwargs={'activation_fn': nn.ReLU},
                  tensorboard_log=str(result_path / "log"),
                  min_lr=args.lr,
                  max_lr=args.lr,
