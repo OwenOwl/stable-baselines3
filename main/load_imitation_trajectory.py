@@ -57,19 +57,19 @@ def create_lab_env(use_visual_obs, use_gui=True, obj_scale=1.0, obj_name="tomato
 import os, tqdm, pickle
 from hoi4d_data.hoi4d_config import hoi4d_config
 from hand_teleop.utils.hoi4d_object_utils import sample_hoi4d_object_pc
-from hand_teleop.utils.object_embedding import MuNet
+from hand_teleop.utils.munet import load_pretrained_munet
 
 if __name__ == '__main__':
     SAMPLE_OBJECT_PC_NUM = 100
     EMB_DIM = 32
-    model_list_path = "/home/lixing/results/result-1018"
+    model_list_path = "/home/lixing/results/result-1024"
     model_list = os.listdir(model_list_path)
 
-    pointnet = MuNet(obs_dim=2, act_dim=2, pc_dim=SAMPLE_OBJECT_PC_NUM, emb_dim=EMB_DIM)
+    pointnet = load_pretrained_munet()
 
     data = []
     
-    for model_exp in tqdm.tqdm(model_list[:5]):
+    for model_exp in tqdm.tqdm(model_list):
         model_args = model_exp.split("-")
         data_id = int(model_args[1])
         randomness = 1.0
@@ -78,12 +78,18 @@ if __name__ == '__main__':
         object_name = hoi4d_config.data_list[data_id]["seq_path"].split('/')[3].replace('N', '0')
 
         object_pc = sample_hoi4d_object_pc((object_cat, object_name), SAMPLE_OBJECT_PC_NUM)
-        object_emb = np.zeros(EMB_DIM) ### TODO
 
         env = create_env(use_visual_obs=False, obj_scale=1.0, obj_name=(object_cat, object_name),
                          data_id=data_id, randomness_scale=randomness)
         lab_env = create_lab_env(use_visual_obs=False, obj_scale=1.0, obj_name=(object_cat, object_name),
                                  obj_init_orientation=env.init_orientation, randomness_scale=randomness)
+
+        flipped = True if np.all(env.init_orientation == np.array([0, 0, 0, 1])) else False
+
+        if flipped:
+            object_pc[:, :2] *= -1
+        
+        object_emb = pointnet.get_embedding(object_pc)
         
         env.rl_step = env.ability_sim_step_deterministic
         lab_env.rl_step = lab_env.ability_arm_sim_step
@@ -149,7 +155,11 @@ if __name__ == '__main__':
             hand_qpos_action = action[6:]
             lab_action = np.concatenate([delta_pose / env.scene.get_timestep() / env.frame_skip, hand_qpos_action])
 
-            observations.append(np.concatenate([lab_obs, object_emb]))
+            observation = np.concatenate([lab_obs, object_emb])
+            if flipped:
+                observation[35:39] = transforms3d.quaternions.mat2quat(transforms3d.quaternions.quat2mat(observation[35:39])
+                                                                       @ transforms3d.quaternions.quat2mat(np.array([0, 0, 0, 1])))
+            observations.append(observation)
             actions.append(lab_action)
             
             pose1 = lab_env.palm_link.get_pose()
