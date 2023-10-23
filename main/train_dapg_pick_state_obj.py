@@ -54,7 +54,6 @@ if __name__ == '__main__':
     parser.add_argument('--objname', type=str, default="035")
     parser.add_argument('--objpc', type=int, default=100)
     parser.add_argument('--dataset_path', type=str)
-    parser.add_argument('--use_bn', type=bool, default=True)
     parser.add_argument('--noise_pc', type=bool, default=True)
 
     args = parser.parse_args()

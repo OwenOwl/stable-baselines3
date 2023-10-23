@@ -57,10 +57,15 @@ def create_lab_env(use_visual_obs, use_gui=True, obj_scale=1.0, obj_name="tomato
 import os, tqdm, pickle
 from hoi4d_data.hoi4d_config import hoi4d_config
 from hand_teleop.utils.hoi4d_object_utils import sample_hoi4d_object_pc
+from hand_teleop.utils.object_embedding import MuNet
+
 if __name__ == '__main__':
-    SAMPLE_OBJECT_PC_NUM = 64
+    SAMPLE_OBJECT_PC_NUM = 100
+    EMB_DIM = 32
     model_list_path = "/home/lixing/results/result-1018"
     model_list = os.listdir(model_list_path)
+
+    pointnet = MuNet(obs_dim=2, act_dim=2, pc_dim=SAMPLE_OBJECT_PC_NUM, emb_dim=EMB_DIM)
 
     data = []
     
@@ -73,6 +78,7 @@ if __name__ == '__main__':
         object_name = hoi4d_config.data_list[data_id]["seq_path"].split('/')[3].replace('N', '0')
 
         object_pc = sample_hoi4d_object_pc((object_cat, object_name), SAMPLE_OBJECT_PC_NUM)
+        object_emb = np.zeros(EMB_DIM) ### TODO
 
         env = create_env(use_visual_obs=False, obj_scale=1.0, obj_name=(object_cat, object_name),
                          data_id=data_id, randomness_scale=randomness)
@@ -85,7 +91,7 @@ if __name__ == '__main__':
         env.set_seed(1)
         lab_env.set_seed(1)
 
-        observations, actions = {'state': [], 'pc_object': []}, []
+        observations, actions = [], []
         obs = env.reset()
         lab_obs = lab_env.reset()
 
@@ -143,8 +149,7 @@ if __name__ == '__main__':
             hand_qpos_action = action[6:]
             lab_action = np.concatenate([delta_pose / env.scene.get_timestep() / env.frame_skip, hand_qpos_action])
 
-            observations['state'].append(lab_obs)
-            observations['pc_object'].append(object_pc)
+            observations.append(np.concatenate([lab_obs, object_emb]))
             actions.append(lab_action)
             
             pose1 = lab_env.palm_link.get_pose()
@@ -162,8 +167,7 @@ if __name__ == '__main__':
             
             palm_pose = lab_pose_inv * lab_env.palm_link.get_pose()
         
-        observations['state'] = np.stack(observations['state'], axis=0)
-        observations['pc_object'] = np.stack(observations['pc_object'], axis=0)
+        observations = np.stack(observations, axis=0)
         actions = np.stack(actions, axis=0)
         trajectory = {"observations" : observations, "actions" : actions}
         if (lab_reward > 2):
