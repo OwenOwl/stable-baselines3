@@ -3,7 +3,7 @@ from multiprocessing import Process
 
 def job(dataid):
     print('process PID: {}'.format(os.getpid()))
-    job_command = 'CUDA_VISIBLE_DEVICES=0 python stable-baselines3/main/train_imitate_pick.py ' \
+    job_command = 'CUDA_VISIBLE_DEVICES=0 python3 stable-baselines3/main/train_imitate_pick.py ' \
                   '--exp pick '\
                   '--reward 0 0.1 0.02 '\
                   '--dataid {} '\
