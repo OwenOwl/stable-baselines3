@@ -94,7 +94,7 @@ if __name__ == '__main__':
 
     model = DAPG("MlpPolicy", env, verbose=1,
                  dataset_path=args.dataset_path,
-                 bc_coef=0.1,
+                 bc_coef=1,
                  bc_decay=0.99,
                  bc_batch_size=2000,
                  n_epochs=args.ep,
