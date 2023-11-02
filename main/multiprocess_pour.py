@@ -7,6 +7,7 @@ def job(dataid):
                   '--objscale 1.5 '\
                   '--exp pour '\
                   '--reward 0 0.1 0.02 '\
+                  '--workers 4 '\
                   '--dataid {} '\
                   '--iter 2000'.format(dataid)
     os.system(job_command)
