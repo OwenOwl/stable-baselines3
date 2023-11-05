@@ -3,8 +3,8 @@ from multiprocessing import Process
 
 def job(dataid):
     print('process PID: {}'.format(os.getpid()))
-    job_command = 'CUDA_VISIBLE_DEVICES=0 python3 stable-baselines3/main/train_imitate_pick.py ' \
-                  '--exp pick '\
+    job_command = 'CUDA_VISIBLE_DEVICES=0 python3 stable-baselines3/main/train_imitate_laptop.py ' \
+                  '--exp laptop '\
                   '--reward 0 0.1 0.02 '\
                   '--workers 4 '\
                   '--dataid {} '\
