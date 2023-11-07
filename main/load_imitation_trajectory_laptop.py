@@ -14,7 +14,7 @@ from stable_baselines3.ppo import PPO
 import random
 from datetime import datetime
 
-def create_env(use_visual_obs, use_gui=True, obj_scale=1.0, obj_name="tomato_soup_can",
+def create_env(use_visual_obs, use_gui=False, obj_scale=1.0, obj_name="tomato_soup_can",
                data_id=0, randomness_scale=1, pc_noise=True):
     import os
     from hand_teleop.env.rl_env.imitation_laptop_env import ImitationLaptopEnv
@@ -27,14 +27,14 @@ def create_env(use_visual_obs, use_gui=True, obj_scale=1.0, obj_name="tomato_sou
     # Specify rendering device if the computing device is given
     if "CUDA_VISIBLE_DEVICES" in os.environ:
         env_params["device"] = "cuda"
-    env = ImitationPickEnv(**env_params)
+    env = ImitationLaptopEnv(**env_params)
 
     if use_visual_obs:
         raise NotImplementedError
     
     return env
 
-def create_lab_env(use_visual_obs, use_gui=True, obj_scale=1.0, obj_name="tomato_soup_can",
+def create_lab_env(use_visual_obs, use_gui=False, obj_scale=1.0, obj_name="tomato_soup_can",
                    obj_init_orientation=np.array([1, 0, 0, 0]), randomness_scale=1, pc_noise=True):
     import os
     from hand_teleop.env.rl_env.free_laptop_env import FreeLaptopEnv
@@ -47,7 +47,7 @@ def create_lab_env(use_visual_obs, use_gui=True, obj_scale=1.0, obj_name="tomato
     # Specify rendering device if the computing device is given
     if "CUDA_VISIBLE_DEVICES" in os.environ:
         env_params["device"] = "cuda"
-    env = FreePickEnv(**env_params)
+    env = FreeLaptopEnv(**env_params)
 
     if use_visual_obs:
         raise NotImplementedError
@@ -70,7 +70,7 @@ if __name__ == '__main__':
 
     data = []
     
-    for model_exp in tqdm.tqdm(model_list[0:1]):
+    for model_exp in tqdm.tqdm(model_list):
         for iters in range(1):
             model_args = model_exp.split("-")
             data_id = int(model_args[1])
@@ -103,11 +103,11 @@ if __name__ == '__main__':
             from sapien.utils import Viewer
             from hand_teleop.env.sim_env.constructor import add_default_scene_light
 
-            viewer = Viewer(lab_env.renderer)
-            viewer.set_scene(lab_env.scene)
-            add_default_scene_light(lab_env.scene, lab_env.renderer)
-            lab_env.viewer = viewer
-            viewer.toggle_pause(True)
+            # viewer = Viewer(lab_env.renderer)
+            # viewer.set_scene(lab_env.scene)
+            # add_default_scene_light(lab_env.scene, lab_env.renderer)
+            # lab_env.viewer = viewer
+            # viewer.toggle_pause(True)
 
             # viewer = Viewer(env.renderer)
             # viewer.set_scene(env.scene)
@@ -136,7 +136,7 @@ if __name__ == '__main__':
             lab_env.robot.set_qpos(np.concatenate([lab_qpos[0][:lab_env.arm_dof], env.robot.get_qpos()[6:]]))
             lab_env.robot.set_drive_target(lab_env.robot.get_qpos())
             
-            lab_env.render()
+            # lab_env.render()
             # env.render()
 
             for i in range(env.horizon):
@@ -172,7 +172,7 @@ if __name__ == '__main__':
 
                 for _ in range(5):
                     pass
-                    lab_env.render()
+                    # lab_env.render()
                     # env.render()
                 
                 palm_pose = lab_pose_inv * lab_env.palm_link.get_pose()
@@ -180,7 +180,7 @@ if __name__ == '__main__':
             observations = np.stack(observations, axis=0)
             actions = np.stack(actions, axis=0)
             trajectory = {"observations" : observations, "actions" : actions}
-            if (lab_reward > 2):
+            if (lab_env.object.get_qpos()[0] > 1):
                 data.append(trajectory)
     
     save_file = open(os.path.join(model_list_path, "data.pkl"), "wb")
