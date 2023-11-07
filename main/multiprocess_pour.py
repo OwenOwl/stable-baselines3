@@ -4,7 +4,7 @@ from multiprocessing import Process
 def job(dataid):
     print('process PID: {}'.format(os.getpid()))
     job_command = 'CUDA_VISIBLE_DEVICES=0 python3 stable-baselines3/main/train_imitate_pour.py ' \
-                  '--objscale 1.5 '\
+                  '--objscale 1 '\
                   '--exp pour '\
                   '--reward 0 0.1 0.02 '\
                   '--workers 4 '\
