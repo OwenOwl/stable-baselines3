@@ -14,10 +14,10 @@ from stable_baselines3.ppo import PPO
 import random
 from datetime import datetime
 
-def create_env(use_visual_obs, use_gui=False, obj_scale=1.0, obj_name="tomato_soup_can",
+def create_env(use_visual_obs, use_gui=True, obj_scale=1.0, obj_name="tomato_soup_can",
                data_id=0, randomness_scale=1, pc_noise=True):
     import os
-    from hand_teleop.env.rl_env.imitation_pick_env import ImitationPickEnv
+    from hand_teleop.env.rl_env.imitation_laptop_env import ImitationLaptopEnv
     from hand_teleop.real_world import task_setting
     from hand_teleop.env.sim_env.constructor import add_default_scene_light
     frame_skip = 5
@@ -34,10 +34,10 @@ def create_env(use_visual_obs, use_gui=False, obj_scale=1.0, obj_name="tomato_so
     
     return env
 
-def create_lab_env(use_visual_obs, use_gui=False, obj_scale=1.0, obj_name="tomato_soup_can",
+def create_lab_env(use_visual_obs, use_gui=True, obj_scale=1.0, obj_name="tomato_soup_can",
                    obj_init_orientation=np.array([1, 0, 0, 0]), randomness_scale=1, pc_noise=True):
     import os
-    from hand_teleop.env.rl_env.free_pick_env import FreePickEnv
+    from hand_teleop.env.rl_env.free_laptop_env import FreeLaptopEnv
     from hand_teleop.real_world import task_setting
     from hand_teleop.env.sim_env.constructor import add_default_scene_light
     frame_skip = 5
@@ -63,15 +63,15 @@ from hand_teleop.utils.munet import load_pretrained_munet
 if __name__ == '__main__':
     SAMPLE_OBJECT_PC_NUM = 100
     EMB_DIM = 32
-    model_list_path = "/home/lixing/results/result-1024"
+    model_list_path = "/home/lixing/results/result-laptop"
     model_list = os.listdir(model_list_path)
 
     pointnet = load_pretrained_munet()
 
     data = []
     
-    for model_exp in tqdm.tqdm(model_list):
-        for iters in range(8):
+    for model_exp in tqdm.tqdm(model_list[0:1]):
+        for iters in range(1):
             model_args = model_exp.split("-")
             data_id = int(model_args[1])
             randomness = 1.0
@@ -85,11 +85,6 @@ if __name__ == '__main__':
                             data_id=data_id, randomness_scale=randomness)
             lab_env = create_lab_env(use_visual_obs=False, obj_scale=1.0, obj_name=(object_cat, object_name),
                                     obj_init_orientation=env.init_orientation, randomness_scale=randomness)
-
-            flipped = True if np.all(env.init_orientation == np.array([0, 0, 0, 1])) else False
-
-            if flipped:
-                object_pc[:, :2] *= -1
             
             object_emb = pointnet.get_embedding(object_pc)
             
@@ -108,11 +103,11 @@ if __name__ == '__main__':
             from sapien.utils import Viewer
             from hand_teleop.env.sim_env.constructor import add_default_scene_light
 
-            # viewer = Viewer(lab_env.renderer)
-            # viewer.set_scene(lab_env.scene)
-            # add_default_scene_light(lab_env.scene, lab_env.renderer)
-            # lab_env.viewer = viewer
-            # viewer.toggle_pause(True)
+            viewer = Viewer(lab_env.renderer)
+            viewer.set_scene(lab_env.scene)
+            add_default_scene_light(lab_env.scene, lab_env.renderer)
+            lab_env.viewer = viewer
+            viewer.toggle_pause(True)
 
             # viewer = Viewer(env.renderer)
             # viewer.set_scene(env.scene)
@@ -141,7 +136,7 @@ if __name__ == '__main__':
             lab_env.robot.set_qpos(np.concatenate([lab_qpos[0][:lab_env.arm_dof], env.robot.get_qpos()[6:]]))
             lab_env.robot.set_drive_target(lab_env.robot.get_qpos())
             
-            # lab_env.render()
+            lab_env.render()
             # env.render()
 
             for i in range(env.horizon):
@@ -163,9 +158,7 @@ if __name__ == '__main__':
                 lab_action = np.concatenate([delta_pose / env.scene.get_timestep() / env.frame_skip, hand_qpos_action])
 
                 observation = np.concatenate([lab_obs, object_emb])
-                if flipped:
-                    observation[35:39] = transforms3d.quaternions.mat2quat(transforms3d.quaternions.quat2mat(observation[35:39])
-                                                                        @ transforms3d.quaternions.quat2mat(np.array([0, 0, 0, 1])))
+
                 observations.append(observation)
                 actions.append(lab_action)
                 
@@ -179,7 +172,7 @@ if __name__ == '__main__':
 
                 for _ in range(5):
                     pass
-                    # lab_env.render()
+                    lab_env.render()
                     # env.render()
                 
                 palm_pose = lab_pose_inv * lab_env.palm_link.get_pose()

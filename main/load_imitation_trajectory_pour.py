@@ -117,7 +117,6 @@ if __name__ == '__main__':
         model_names = os.listdir(os.path.join(model_list_path, model_exp, "model"))
         model_names.sort(key=lambda fn: int(fn.split("_")[1].split(".")[0]))
         model_path = os.path.join(model_list_path, model_exp, "model", model_names[-1])
-        print(model_path)
         model = PPO.load(path=model_path, env=None)
 
         # IK Initial xarm pose by pinocchio
