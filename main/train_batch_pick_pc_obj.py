@@ -101,12 +101,49 @@ if __name__ == '__main__':
     env = HandTeleopVecEnv([make_env_fn] * args.workers)
     print(env.observation_space, env.action_space)
 
-    obs = env.reset()
-    viz_pc(obs["relocate-point_cloud"][1, :, :])
-    for key, value in obs.items():
-        print(key, value.shape)
-    for _ in range(100):
-        action = np.array([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-        actions = np.tile(action, [args.workers, 1])
-        obs, reward, done, info = env.step(actions)
-    viz_pc(obs["relocate-point_cloud"][1, :, :])
+    feature_extractor_class = PointNetStateExtractor
+    feature_extractor_kwargs = {
+        "pc_key": "relocate-point_cloud",
+        "local_channels": (64, 128, 256),
+        "global_channels": (256,),
+        "use_bn": args.use_bn,
+        "state_mlp_size": (64, 64),
+    }
+    policy_kwargs = {
+        "features_extractor_class": feature_extractor_class,
+        "features_extractor_kwargs": feature_extractor_kwargs,
+        "net_arch": [dict(pi=[64, 64], vf=[64, 64])],
+        "activation_fn": nn.ReLU,
+    }
+
+    model = DAPG("PointCloudPolicy", env, verbose=1,
+                 dataset_path=args.dataset_path,
+                 bc_coef=1,
+                 bc_decay=0.99,
+                 bc_batch_size=2000,
+                 n_epochs=args.ep,
+                 n_steps=(args.n // args.workers) * horizon,
+                 learning_rate=args.lr,
+                 batch_size=args.bs,
+                 seed=args.seed,
+                 policy_kwargs={'activation_fn': nn.ReLU},
+                 tensorboard_log=str(result_path / "log"),
+                 min_lr=args.lr,
+                 max_lr=args.lr,
+                 adaptive_kl=0.02,
+                 target_kl=0.5,
+                 )
+
+    model.learn(
+        total_timesteps=int(env_iter),
+        bc_init_epoch=200,
+        bc_init_batch_size=2000,
+        callback=WandbCallback(
+            model_save_freq=50,
+            model_save_path=str(result_path / "model"),
+            eval_env_fn=create_eval_env_fn,
+            eval_freq=100,
+            eval_cam_names=["relocate_viz"],
+        ),
+    )
+    wandb_run.finish()
