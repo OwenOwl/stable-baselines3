@@ -5,9 +5,13 @@ from pathlib import Path
 import numpy as np
 import open3d as o3d
 import torch
+import torch.nn as nn
 
 from hand_env_utils.arg_utils import *
 from stable_baselines3.common.vec_env.hand_teleop_vec_env import HandTeleopVecEnv
+from hand_env_utils.wandb_callback import WandbCallback, setup_wandb
+from stable_baselines3.common.torch_layers import PointNetStateExtractor
+from stable_baselines3.dapg import DAPG
 
 
 def create_env(use_gui=False, is_eval=False, obj_scale=1.0, obj_name="tomato_soup_can",
@@ -66,6 +70,7 @@ if __name__ == '__main__':
     parser.add_argument('--objcat', type=str, default="toycar")
     parser.add_argument('--objname', type=str, default="035")
     parser.add_argument('--objpc', type=int, default=100)
+    parser.add_argument('--use_bn', type=bool, default=True)
     parser.add_argument('--dataset_path', type=str)
     parser.add_argument('--noise_pc', type=bool, default=True)
 
@@ -89,7 +94,7 @@ if __name__ == '__main__':
     exp_name = "-".join(exp_keywords)
     result_path = Path("./results") / exp_name
     result_path.mkdir(exist_ok=True, parents=True)
-
+    wandb_run = setup_wandb(config, "-".join([exp_name, now.strftime("(%Y/%m/%d,%H:%M)")]), tags=["point_cloud", "dapg"])
 
     def create_eval_env_fn():
         environment = create_env(use_visual_obs=False, obj_scale=obj_scale, obj_name=obj_name,
@@ -126,7 +131,7 @@ if __name__ == '__main__':
                  learning_rate=args.lr,
                  batch_size=args.bs,
                  seed=args.seed,
-                 policy_kwargs={'activation_fn': nn.ReLU},
+                 policy_kwargs=policy_kwargs,
                  tensorboard_log=str(result_path / "log"),
                  min_lr=args.lr,
                  max_lr=args.lr,

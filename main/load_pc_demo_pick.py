@@ -59,7 +59,7 @@ if __name__ == '__main__':
     data = []
 
     for iters in range(1):
-        observations, actions = {"relocate-point_cloud": []}, []
+        observations, actions = {"relocate-point_cloud": [], "state": []}, []
         obs = env.reset()
 
         # from sapien.utils import Viewer
@@ -74,10 +74,12 @@ if __name__ == '__main__':
         for i in range(env.horizon):
             oracle_state = env.get_oracle_state()
             pc_obs = obs["relocate-point_cloud"]
+            state_obs = obs["state"]
             action = model.policy.predict(observation=oracle_state, deterministic=True)[0]
             obs, _, _, _ = env.step(action)
             
             observations["relocate-point_cloud"].append(pc_obs)
+            observations["state"].append(state_obs)
             actions.append(action)
 
             for _ in range(5):
@@ -85,6 +87,7 @@ if __name__ == '__main__':
                 # env.render()
         
         observations["relocate-point_cloud"] = np.stack(observations["relocate-point_cloud"], axis=0)
+        observations["state"] = np.stack(observations["state"], axis=0)
         actions = np.stack(actions, axis=0)
         trajectory = {"observations" : observations, "actions" : actions}
         data.append(trajectory)
