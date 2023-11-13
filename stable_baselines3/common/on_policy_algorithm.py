@@ -6,7 +6,7 @@ import numpy as np
 import torch as th
 
 from stable_baselines3.common.base_class import BaseAlgorithm
-from stable_baselines3.common.buffers import DictRolloutBuffer, RolloutBuffer
+from stable_baselines3.common.buffers import DictRolloutBuffer, RolloutBuffer, DictRolloutBufferTensor
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.policies import ActorCriticPolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
@@ -109,6 +109,9 @@ class OnPolicyAlgorithm(BaseAlgorithm):
         self.set_random_seed(self.seed)
 
         buffer_cls = DictRolloutBuffer if isinstance(self.observation_space, gym.spaces.Dict) else RolloutBuffer
+        if hasattr(self.env, "server_address"):
+            buffer_cls = DictRolloutBufferTensor
+            print("Use tensor buffer for hand_teleop vector environment")
 
         self.rollout_buffer = buffer_cls(
             self.n_steps,

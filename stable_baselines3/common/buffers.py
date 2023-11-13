@@ -1,3 +1,4 @@
+import torch
 import warnings
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Generator, List, Optional, Union
@@ -10,7 +11,6 @@ from stable_baselines3.common.preprocessing import get_action_dim, get_obs_shape
 from stable_baselines3.common.type_aliases import (
     DictReplayBufferSamples,
     DictRolloutBufferSamples,
-    DictSSLRolloutBufferSamples,
     ReplayBufferSamples,
     RolloutBufferSamples,
 )
@@ -37,12 +37,12 @@ class BaseBuffer(ABC):
     """
 
     def __init__(
-        self,
-        buffer_size: int,
-        observation_space: spaces.Space,
-        action_space: spaces.Space,
-        device: Union[th.device, str] = "cpu",
-        n_envs: int = 1,
+            self,
+            buffer_size: int,
+            observation_space: spaces.Space,
+            action_space: spaces.Space,
+            device: Union[th.device, str] = "cpu",
+            n_envs: int = 1,
     ):
         super().__init__()
         self.buffer_size = buffer_size
@@ -113,7 +113,7 @@ class BaseBuffer(ABC):
 
     @abstractmethod
     def _get_samples(
-        self, batch_inds: np.ndarray, env: Optional[VecNormalize] = None
+            self, batch_inds: np.ndarray, env: Optional[VecNormalize] = None
     ) -> Union[ReplayBufferSamples, RolloutBufferSamples]:
         """
         :param batch_inds:
@@ -138,8 +138,8 @@ class BaseBuffer(ABC):
 
     @staticmethod
     def _normalize_obs(
-        obs: Union[np.ndarray, Dict[str, np.ndarray]],
-        env: Optional[VecNormalize] = None,
+            obs: Union[np.ndarray, Dict[str, np.ndarray]],
+            env: Optional[VecNormalize] = None,
     ) -> Union[np.ndarray, Dict[str, np.ndarray]]:
         if env is not None:
             return env.normalize_obs(obs)
@@ -253,14 +253,14 @@ class ReplayBuffer(BaseBuffer):
     """
 
     def __init__(
-        self,
-        buffer_size: int,
-        observation_space: spaces.Space,
-        action_space: spaces.Space,
-        device: Union[th.device, str] = "cpu",
-        n_envs: int = 1,
-        optimize_memory_usage: bool = False,
-        handle_timeout_termination: bool = True,
+            self,
+            buffer_size: int,
+            observation_space: spaces.Space,
+            action_space: spaces.Space,
+            device: Union[th.device, str] = "cpu",
+            n_envs: int = 1,
+            optimize_memory_usage: bool = False,
+            handle_timeout_termination: bool = True,
     ):
         super().__init__(buffer_size, observation_space, action_space, device, n_envs=n_envs)
 
@@ -279,7 +279,8 @@ class ReplayBuffer(BaseBuffer):
             # `observations` contains also the next observation
             self.next_observations = None
         else:
-            self.next_observations = np.zeros((self.buffer_size, self.n_envs) + self.obs_shape, dtype=observation_space.dtype)
+            self.next_observations = np.zeros((self.buffer_size, self.n_envs) + self.obs_shape,
+                                              dtype=observation_space.dtype)
 
         self.actions = np.zeros((self.buffer_size, self.n_envs, self.action_dim), dtype=action_space.dtype)
 
@@ -306,13 +307,13 @@ class ReplayBuffer(BaseBuffer):
                 )
 
     def add(
-        self,
-        obs: np.ndarray,
-        next_obs: np.ndarray,
-        action: np.ndarray,
-        reward: np.ndarray,
-        done: np.ndarray,
-        infos: List[Dict[str, Any]],
+            self,
+            obs: np.ndarray,
+            next_obs: np.ndarray,
+            action: np.ndarray,
+            reward: np.ndarray,
+            done: np.ndarray,
+            infos: List[Dict[str, Any]],
     ) -> None:
 
         # Reshape needed when using multiple envs with discrete observations
@@ -412,14 +413,14 @@ class RolloutBuffer(BaseBuffer):
     """
 
     def __init__(
-        self,
-        buffer_size: int,
-        observation_space: spaces.Space,
-        action_space: spaces.Space,
-        device: Union[th.device, str] = "cpu",
-        gae_lambda: float = 1,
-        gamma: float = 0.99,
-        n_envs: int = 1,
+            self,
+            buffer_size: int,
+            observation_space: spaces.Space,
+            action_space: spaces.Space,
+            device: Union[th.device, str] = "cpu",
+            gae_lambda: float = 1,
+            gamma: float = 0.99,
+            n_envs: int = 1,
     ):
 
         super().__init__(buffer_size, observation_space, action_space, device, n_envs=n_envs)
@@ -481,13 +482,13 @@ class RolloutBuffer(BaseBuffer):
         self.returns = self.advantages + self.values
 
     def add(
-        self,
-        obs: np.ndarray,
-        action: np.ndarray,
-        reward: np.ndarray,
-        episode_start: np.ndarray,
-        value: th.Tensor,
-        log_prob: th.Tensor,
+            self,
+            obs: np.ndarray,
+            action: np.ndarray,
+            reward: np.ndarray,
+            episode_start: np.ndarray,
+            value: th.Tensor,
+            log_prob: th.Tensor,
     ) -> None:
         """
         :param obs: Observation
@@ -543,7 +544,7 @@ class RolloutBuffer(BaseBuffer):
 
         start_idx = 0
         while start_idx < self.buffer_size * self.n_envs:
-            yield self._get_samples(indices[start_idx : start_idx + batch_size])
+            yield self._get_samples(indices[start_idx: start_idx + batch_size])
             start_idx += batch_size
 
     def _get_samples(self, batch_inds: np.ndarray, env: Optional[VecNormalize] = None) -> RolloutBufferSamples:
@@ -576,14 +577,14 @@ class DictReplayBuffer(ReplayBuffer):
     """
 
     def __init__(
-        self,
-        buffer_size: int,
-        observation_space: spaces.Space,
-        action_space: spaces.Space,
-        device: Union[th.device, str] = "cpu",
-        n_envs: int = 1,
-        optimize_memory_usage: bool = False,
-        handle_timeout_termination: bool = True,
+            self,
+            buffer_size: int,
+            observation_space: spaces.Space,
+            action_space: spaces.Space,
+            device: Union[th.device, str] = "cpu",
+            n_envs: int = 1,
+            optimize_memory_usage: bool = False,
+            handle_timeout_termination: bool = True,
     ):
         super(ReplayBuffer, self).__init__(buffer_size, observation_space, action_space, device, n_envs=n_envs)
 
@@ -639,13 +640,13 @@ class DictReplayBuffer(ReplayBuffer):
                 )
 
     def add(
-        self,
-        obs: Dict[str, np.ndarray],
-        next_obs: Dict[str, np.ndarray],
-        action: np.ndarray,
-        reward: np.ndarray,
-        done: np.ndarray,
-        infos: List[Dict[str, Any]],
+            self,
+            obs: Dict[str, np.ndarray],
+            next_obs: Dict[str, np.ndarray],
+            action: np.ndarray,
+            reward: np.ndarray,
+            done: np.ndarray,
+            infos: List[Dict[str, Any]],
     ) -> None:
         # Copy to avoid modification by reference
         for key in self.observations.keys():
@@ -692,7 +693,8 @@ class DictReplayBuffer(ReplayBuffer):
         env_indices = np.random.randint(0, high=self.n_envs, size=(len(batch_inds),))
 
         # Normalize if needed and remove extra dimension (we are using only one env for now)
-        obs_ = self._normalize_obs({key: obs[batch_inds, env_indices, :] for key, obs in self.observations.items()}, env)
+        obs_ = self._normalize_obs({key: obs[batch_inds, env_indices, :] for key, obs in self.observations.items()},
+                                   env)
         next_obs_ = self._normalize_obs(
             {key: obs[batch_inds, env_indices, :] for key, obs in self.next_observations.items()}, env
         )
@@ -707,7 +709,8 @@ class DictReplayBuffer(ReplayBuffer):
             next_observations=next_observations,
             # Only use dones that are not due to timeouts
             # deactivated by default (timeouts is initialized as an array of False)
-            dones=self.to_torch(self.dones[batch_inds, env_indices] * (1 - self.timeouts[batch_inds, env_indices])).reshape(
+            dones=self.to_torch(
+                self.dones[batch_inds, env_indices] * (1 - self.timeouts[batch_inds, env_indices])).reshape(
                 -1, 1
             ),
             rewards=self.to_torch(self._normalize_reward(self.rewards[batch_inds, env_indices].reshape(-1, 1), env)),
@@ -740,14 +743,14 @@ class DictRolloutBuffer(RolloutBuffer):
     """
 
     def __init__(
-        self,
-        buffer_size: int,
-        observation_space: spaces.Space,
-        action_space: spaces.Space,
-        device: Union[th.device, str] = "cpu",
-        gae_lambda: float = 1,
-        gamma: float = 0.99,
-        n_envs: int = 1,
+            self,
+            buffer_size: int,
+            observation_space: spaces.Space,
+            action_space: spaces.Space,
+            device: Union[th.device, str] = "cpu",
+            gae_lambda: float = 1,
+            gamma: float = 0.99,
+            n_envs: int = 1,
     ):
 
         super(RolloutBuffer, self).__init__(buffer_size, observation_space, action_space, device, n_envs=n_envs)
@@ -777,13 +780,13 @@ class DictRolloutBuffer(RolloutBuffer):
         super(RolloutBuffer, self).reset()
 
     def add(
-        self,
-        obs: Dict[str, np.ndarray],
-        action: np.ndarray,
-        reward: np.ndarray,
-        episode_start: np.ndarray,
-        value: th.Tensor,
-        log_prob: th.Tensor,
+            self,
+            obs: Dict[str, np.ndarray],
+            action: np.ndarray,
+            reward: np.ndarray,
+            episode_start: np.ndarray,
+            value: th.Tensor,
+            log_prob: th.Tensor,
     ) -> None:
         """
         :param obs: Observation
@@ -837,7 +840,7 @@ class DictRolloutBuffer(RolloutBuffer):
 
         start_idx = 0
         while start_idx < self.buffer_size * self.n_envs:
-            yield self._get_samples(indices[start_idx : start_idx + batch_size])
+            yield self._get_samples(indices[start_idx: start_idx + batch_size])
             start_idx += batch_size
 
     def _get_samples(self, batch_inds: np.ndarray, env: Optional[VecNormalize] = None) -> DictRolloutBufferSamples:
@@ -852,58 +855,15 @@ class DictRolloutBuffer(RolloutBuffer):
         )
 
 
-class DictSSLRolloutBuffer(RolloutBuffer):
-    """
-    Dict Rollout buffer used in on-policy algorithms like A2C/PPO.
-    Extends the RolloutBuffer to use dictionary observations
-
-    It corresponds to ``buffer_size`` transitions collected
-    using the current policy.
-    This experience will be discarded after the policy update.
-    In order to use PPO objective, we also store the current value of each state
-    and the log probability of each taken action.
-
-    The term rollout here refers to the model-free notion and should not
-    be used with the concept of rollout used in model-based RL or planning.
-    Hence, it is only involved in policy and value function training but not action selection.
-
-    :param buffer_size: Max number of element in the buffer
-    :param observation_space: Observation space
-    :param action_space: Action space
-    :param device:
-    :param gae_lambda: Factor for trade-off of bias vs variance for Generalized Advantage Estimator
-        Equivalent to Monte-Carlo advantage estimate when set to 1.
-    :param gamma: Discount factor
-    :param n_envs: Number of parallel environments
-    """
-
-    def __init__(
-        self,
-        buffer_size: int,
-        observation_space: spaces.Space,
-        action_space: spaces.Space,
-        device: Union[th.device, str] = "cpu",
-        gae_lambda: float = 1,
-        gamma: float = 0.99,
-        n_envs: int = 1,
-    ):
-
-        super(RolloutBuffer, self).__init__(buffer_size, observation_space, action_space, device, n_envs=n_envs)
-
-        assert isinstance(self.obs_shape, dict), "DictRolloutBuffer must be used with Dict obs space only"
-
-        self.gae_lambda = gae_lambda
-        self.gamma = gamma
-        self.observations, self.actions, self.rewards, self.advantages = None, None, None, None
-        self.returns, self.episode_starts, self.values, self.log_probs = None, None, None, None
-        self.generator_ready = False
-        self.reset()
-
+class DictRolloutBufferTensor(RolloutBuffer):
     def reset(self) -> None:
-        assert isinstance(self.obs_shape, dict), "DictRolloutBuffer must be used with Dict obs space only"
         self.observations = {}
         for key, obs_input_shape in self.obs_shape.items():
-            self.observations[key] = np.zeros((self.buffer_size, self.n_envs) + obs_input_shape, dtype=np.float32)
+            if "point_cloud" in key:
+                self.observations[key] = torch.zeros((self.buffer_size, self.n_envs) + obs_input_shape,
+                                                     dtype=torch.float32, device=self.device)
+            else:
+                self.observations[key] = np.zeros((self.buffer_size, self.n_envs) + obs_input_shape, dtype=np.float32)
         self.actions = np.zeros((self.buffer_size, self.n_envs, self.action_dim), dtype=np.float32)
         self.rewards = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
         self.returns = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
@@ -915,13 +875,13 @@ class DictSSLRolloutBuffer(RolloutBuffer):
         super(RolloutBuffer, self).reset()
 
     def add(
-        self,
-        obs: Dict[str, np.ndarray],
-        action: np.ndarray,
-        reward: np.ndarray,
-        episode_start: np.ndarray,
-        value: th.Tensor,
-        log_prob: th.Tensor,
+            self,
+            obs: Dict[str, Union[np.ndarray, torch.Tensor]],
+            action: np.ndarray,
+            reward: np.ndarray,
+            episode_start: np.ndarray,
+            value: th.Tensor,
+            log_prob: th.Tensor,
     ) -> None:
         """
         :param obs: Observation
@@ -938,12 +898,15 @@ class DictSSLRolloutBuffer(RolloutBuffer):
             log_prob = log_prob.reshape(-1, 1)
 
         for key in self.observations.keys():
-            obs_ = np.array(obs[key]).copy()
-            # Reshape needed when using multiple envs with discrete observations
-            # as numpy cannot broadcast (n_discrete,) to (n_discrete, 1)
-            if isinstance(self.observation_space.spaces[key], spaces.Discrete):
-                obs_ = obs_.reshape((self.n_envs,) + self.obs_shape[key])
-            self.observations[key][self.pos] = obs_
+            if isinstance(obs[key], torch.Tensor):
+                self.observations[key][self.pos] = obs[key]
+            else:
+                obs_ = np.array(obs[key]).copy()
+                # Reshape needed when using multiple envs with discrete observations
+                # as numpy cannot broadcast (n_discrete,) to (n_discrete, 1)
+                if isinstance(self.observation_space.spaces[key], spaces.Discrete):
+                    obs_ = obs_.reshape((self.n_envs,) + self.obs_shape[key])
+                self.observations[key][self.pos] = obs_
 
         self.actions[self.pos] = np.array(action).copy()
         self.rewards[self.pos] = np.array(reward).copy()
@@ -961,8 +924,18 @@ class DictSSLRolloutBuffer(RolloutBuffer):
         if not self.generator_ready:
 
             for key, obs in self.observations.items():
-                self.observations[key] = self.swap_and_flatten(obs)
-
+                if isinstance(obs, np.ndarray):
+                    self.observations[key] = self.swap_and_flatten(obs)
+                else:
+                    shape = obs.shape
+                    if len(shape) < 3:
+                        shape = shape + (1,)
+                    self.observations[key] = torch.reshape(torch.swapaxes(obs, 0, 1), [shape[0] * shape[1], *shape[2:]])
+            # shape = arr.shape
+            # if len(shape) < 3:
+            #     shape = shape + (1,)
+            # return arr.swapaxes(0, 1).reshape(shape[0] * shape[1], *shape[2:])
+            #
             _tensor_names = ["actions", "values", "log_probs", "advantages", "returns"]
 
             for tensor in _tensor_names:
@@ -975,36 +948,22 @@ class DictSSLRolloutBuffer(RolloutBuffer):
 
         start_idx = 0
         while start_idx < self.buffer_size * self.n_envs:
-            yield self._get_samples(indices[start_idx : start_idx + batch_size])
+            yield self._get_samples(indices[start_idx: start_idx + batch_size])
             start_idx += batch_size
 
-    def _get_samples(self, batch_inds: np.ndarray, env: Optional[VecNormalize] = None) -> DictSSLRolloutBufferSamples:
+    def _get_samples(self, batch_inds: np.ndarray, env: Optional[VecNormalize] = None) -> DictRolloutBufferSamples:
+        obs_dict = {}
+        for (key, obs) in self.observations.items():
+            if isinstance(obs, np.ndarray):
+                obs_dict[key] = self.to_torch(obs[batch_inds])
+            else:
+                obs_dict[key] = obs[batch_inds]
 
-        def get_next_obs(obs, ind, i):
-            result = {}
-            for key, obs in obs.items():
-                future_batch_inds = np.clip(ind + i, 0, len(obs)-1)
-                next_obs = self.to_torch(obs[future_batch_inds])
-                result[key] = next_obs
-
-            return result
-
-        def get_next_action(actions, ind, i):
-            future_batch_inds = np.clip(ind + i, 0, len(actions) - 1)
-            return self.to_torch(actions[future_batch_inds])
-
-
-        next_observations = [get_next_obs(self.observations, batch_inds, i) for i in range(4)]
-        next_actions = [get_next_action(self.actions, batch_inds, i) for i in range(4)]
-
-        return DictSSLRolloutBufferSamples(
-            observations={key: self.to_torch(obs[batch_inds]) for (key, obs) in self.observations.items()},
-            next_observations=next_observations,
+        return DictRolloutBufferSamples(
+            observations=obs_dict,
             actions=self.to_torch(self.actions[batch_inds]),
-            next_actions=next_actions,
             old_values=self.to_torch(self.values[batch_inds].flatten()),
             old_log_prob=self.to_torch(self.log_probs[batch_inds].flatten()),
             advantages=self.to_torch(self.advantages[batch_inds].flatten()),
             returns=self.to_torch(self.returns[batch_inds].flatten()),
         )
-

@@ -1,25 +1,19 @@
-import torch
 import multiprocessing as mp
 import os
 from copy import deepcopy
 from functools import partial
 from multiprocessing.connection import Connection
-from typing import Callable, List, Optional, Sequence, Type, Union, Any
+from typing import Callable, List, Optional, Sequence, Type, Union
 
 import numpy as np
 import sapien.core as sapien
+import torch
 from gym import spaces, Wrapper
 from gym.spaces import Dict as GymDict
 
-from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvIndices
-
-try:
-    import torch
-except ImportError:
-    raise ImportError("To use ManiSkill2 VecEnv, please install PyTorch first.")
-
 from hand_teleop.env.rl_env.base import BaseRLEnv
 from hand_teleop.real_world import lab
+from stable_baselines3.common.vec_env.base_vec_env import VecEnv
 
 
 def find_available_port():
@@ -391,8 +385,9 @@ class HandTeleopVecEnv(VecEnv):
             seed = [seed + i for i in range(len(remotes))]
         for remote, single_seed in zip(remotes, seed):
             remote.send(("reset", single_seed))
+        _ = [remote.recv() for remote in self.remotes]
         self.waiting = True
-        return [None] * self.num_envs
+        return seed
 
 
 def create_np_buffer(space: spaces.Space, n: int):

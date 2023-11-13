@@ -2,15 +2,13 @@ from datetime import datetime
 from functools import partial
 from pathlib import Path
 
-import numpy as np
-import open3d as o3d
 import torch
 import torch.nn as nn
 
 from hand_env_utils.arg_utils import *
-from stable_baselines3.common.vec_env.hand_teleop_vec_env import HandTeleopVecEnv
 from hand_env_utils.wandb_callback import WandbCallback, setup_wandb
 from stable_baselines3.common.torch_layers import PointNetStateExtractor
+from stable_baselines3.common.vec_env.hand_teleop_vec_env import HandTeleopVecEnv
 from stable_baselines3.dapg import DAPG
 
 
@@ -35,20 +33,25 @@ def create_env(use_gui=False, is_eval=False, obj_scale=1.0, obj_name="tomato_sou
     env = FreePickEnv(**env_params)
 
     # Setup visual
-    env.setup_camera_from_config(task_setting.CAMERA_CONFIG["relocate"])
+    if not is_eval:
+        env.setup_camera_from_config(task_setting.CAMERA_CONFIG["relocate"])
+
+    if is_eval:
+        config = task_setting.CAMERA_CONFIG["viz_only"].copy()
+        config.update(task_setting.CAMERA_CONFIG["relocate"])
+        env.setup_camera_from_config(config)
+        add_default_scene_light(env.scene, env.renderer)
+
     if pc_noise:
         env.setup_visual_obs_config(task_setting.OBS_CONFIG["relocate_noise"])
     else:
         env.setup_visual_obs_config(task_setting.OBS_CONFIG["relocate"])
 
-    if is_eval:
-        env.setup_camera_from_config(task_setting.CAMERA_CONFIG["viz_only"])
-        add_default_scene_light(env.scene, env.renderer)
-
     return env
 
 
 def viz_pc(point_cloud: torch.Tensor):
+    import open3d as o3d
     pc = o3d.geometry.PointCloud()
     pc.points = o3d.utility.Vector3dVector(point_cloud.cpu().numpy())
     coord = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.05, origin=[0, 0, 0])
@@ -58,12 +61,12 @@ def viz_pc(point_cloud: torch.Tensor):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--n', type=int, default=100)
-    parser.add_argument('--workers', type=int, default=2)
+    parser.add_argument('--workers', type=int, default=5)
     parser.add_argument('--lr', type=float, default=3e-4)
     parser.add_argument('--ep', type=int, default=10)
-    parser.add_argument('--bs', type=int, default=2000)
+    parser.add_argument('--bs', type=int, default=200)
     parser.add_argument('--seed', type=int, default=100)
-    parser.add_argument('--iter', type=int, default=5000)
+    parser.add_argument('--iter', type=int, default=1000)
     parser.add_argument('--randomness', type=float, default=1.0)
     parser.add_argument('--exp', type=str)
     parser.add_argument('--objscale', type=float, default=1.0)
@@ -94,15 +97,12 @@ if __name__ == '__main__':
     exp_name = "-".join(exp_keywords)
     result_path = Path("./results") / exp_name
     result_path.mkdir(exist_ok=True, parents=True)
-    wandb_run = setup_wandb(config, "-".join([exp_name, now.strftime("(%Y/%m/%d,%H:%M)")]), tags=["point_cloud", "dapg"])
-
-    def create_eval_env_fn():
-        environment = create_env(use_visual_obs=False, obj_scale=obj_scale, obj_name=obj_name,
-                                 object_pc_sample=obj_pc_smp, is_eval=True)
-        return environment
-
+    wandb_run = setup_wandb(config, "-".join([exp_name, now.strftime("(%Y/%m/%d,%H:%M)")]),
+                            tags=["point_cloud", "dapg"])
 
     make_env_fn = partial(create_env, obj_scale=obj_scale, obj_name=obj_name, object_pc_sample=obj_pc_smp)
+    make_env_fn_eval = partial(create_env, obj_scale=obj_scale, obj_name=obj_name, object_pc_sample=obj_pc_smp,
+                               is_eval=True)
     env = HandTeleopVecEnv([make_env_fn] * args.workers)
     print(env.observation_space, env.action_space)
 
@@ -146,7 +146,7 @@ if __name__ == '__main__':
         callback=WandbCallback(
             model_save_freq=50,
             model_save_path=str(result_path / "model"),
-            eval_env_fn=create_eval_env_fn,
+            eval_env_fn=make_env_fn_eval,
             eval_freq=100,
             eval_cam_names=["relocate_viz"],
         ),
