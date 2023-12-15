@@ -58,7 +58,7 @@ if __name__ == '__main__':
 
     data = []
 
-    for iters in range(1):
+    for iters in range(100):
         observations, actions = {"relocate-point_cloud": [], "state": []}, []
         obs = env.reset()
 
@@ -92,7 +92,7 @@ if __name__ == '__main__':
         trajectory = {"observations" : observations, "actions" : actions}
         data.append(trajectory)
     
-    save_file = open("/home/lixing/results/data-test.pkl", "wb")
+    save_file = open("/home/lixing/results/data-test2.pkl", "wb")
     pickle.dump(data, save_file)
     save_file.close()
     print(len(data))

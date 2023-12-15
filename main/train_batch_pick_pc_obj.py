@@ -125,7 +125,7 @@ if __name__ == '__main__':
                  dataset_path=args.dataset_path,
                  bc_coef=1,
                  bc_decay=0.99,
-                 bc_batch_size=2000,
+                 bc_batch_size=500,
                  n_epochs=args.ep,
                  n_steps=(args.n // args.workers) * horizon,
                  learning_rate=args.lr,
@@ -141,8 +141,8 @@ if __name__ == '__main__':
 
     model.learn(
         total_timesteps=int(env_iter),
-        bc_init_epoch=200,
-        bc_init_batch_size=2000,
+        bc_init_epoch=1000,
+        bc_init_batch_size=500,
         callback=WandbCallback(
             model_save_freq=50,
             model_save_path=str(result_path / "model"),
