@@ -50,16 +50,17 @@ if __name__ == '__main__':
     parser.add_argument('--randomness', type=float, default=1.0)
     parser.add_argument('--exp', type=str)
     parser.add_argument('--objscale', type=float, default=1.0)
-    parser.add_argument('--objcat', type=str, default="toycar")
-    parser.add_argument('--objname', type=str, default="035")
+    parser.add_argument('--objcat', type=str, default="random")
+    parser.add_argument('--objname', type=str, default="random")
     parser.add_argument('--objpc', type=int, default=100)
     parser.add_argument('--dataset_path', type=str)
     parser.add_argument('--noise_pc', type=bool, default=True)
+    parser.add_argument('--bcc', type=float, default=1.0)
 
     args = parser.parse_args()
     randomness = args.randomness
     now = datetime.now()
-    exp_keywords = [args.exp, str(args.objcat), str(args.objname)]
+    exp_keywords = [args.exp, str(args.bcc)]
     horizon = 200
     env_iter = args.iter * horizon * args.n
     obj_scale = args.objscale
@@ -94,8 +95,8 @@ if __name__ == '__main__':
 
     model = DAPG("MlpPolicy", env, verbose=1,
                  dataset_path=args.dataset_path,
-                 bc_coef=1,
-                 bc_decay=0.99,
+                 bc_coef=args.bcc,
+                 bc_decay=1,
                  bc_batch_size=2000,
                  n_epochs=args.ep,
                  n_steps=(args.n // args.workers) * horizon,
@@ -112,7 +113,7 @@ if __name__ == '__main__':
 
     model.learn(
         total_timesteps=int(env_iter),
-        bc_init_epoch=200,
+        bc_init_epoch=1000,
         bc_init_batch_size=2000,
         callback=WandbCallback(
             model_save_freq=50,

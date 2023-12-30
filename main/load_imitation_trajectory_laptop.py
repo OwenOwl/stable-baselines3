@@ -71,7 +71,7 @@ if __name__ == '__main__':
     data = []
     
     for model_exp in tqdm.tqdm(model_list):
-        for iters in range(1):
+        for iters in range(16):
             model_args = model_exp.split("-")
             data_id = int(model_args[1])
             randomness = 1.0
@@ -79,14 +79,10 @@ if __name__ == '__main__':
             object_cat = hoi4d_config.data_list[data_id]["obj_cat"]
             object_name = hoi4d_config.data_list[data_id]["seq_path"].split('/')[3].replace('N', '0')
 
-            object_pc = sample_hoi4d_object_pc((object_cat, object_name), SAMPLE_OBJECT_PC_NUM)
-
             env = create_env(use_visual_obs=False, obj_scale=1.0, obj_name=(object_cat, object_name),
                             data_id=data_id, randomness_scale=randomness)
             lab_env = create_lab_env(use_visual_obs=False, obj_scale=1.0, obj_name=(object_cat, object_name),
                                     obj_init_orientation=env.init_orientation, randomness_scale=randomness)
-            
-            object_emb = pointnet.get_embedding(object_pc)
             
             env.rl_step = env.ability_sim_step_deterministic
             lab_env.rl_step = lab_env.ability_arm_sim_step
@@ -139,6 +135,8 @@ if __name__ == '__main__':
             # lab_env.render()
             # env.render()
 
+            object_pc = sample_hoi4d_object_pc((object_cat, object_name), SAMPLE_OBJECT_PC_NUM * 3)
+
             for i in range(env.horizon):
                 action = model.policy.predict(observation=obs, deterministic=True)[0]
                 obs, reward, done, _ = env.step(action)
@@ -156,6 +154,9 @@ if __name__ == '__main__':
 
                 hand_qpos_action = action[6:]
                 lab_action = np.concatenate([delta_pose / env.scene.get_timestep() / env.frame_skip, hand_qpos_action])
+
+                np.random.shuffle(object_pc)
+                object_emb = pointnet.get_embedding(object_pc[:SAMPLE_OBJECT_PC_NUM])
 
                 observation = np.concatenate([lab_obs, object_emb])
 
