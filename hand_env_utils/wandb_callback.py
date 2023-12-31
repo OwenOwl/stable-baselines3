@@ -80,7 +80,7 @@ class WandbCallback(BaseCallback):
         need_restore = self.model.__dict__.get("need_restore", False)
         current_restore_step = self.model.__dict__.get("current_restore_step", 0)
         wandb.log({"rollout/restore": current_restore_step}, step=self.roll_out + 1)
-        if need_restore and current_restore_step <= 5:
+        if need_restore and current_restore_step < 5: ### BUG: rollout/restore will be covered by 0 if < 5
             return
 
         if self.model_save_freq > 0:
