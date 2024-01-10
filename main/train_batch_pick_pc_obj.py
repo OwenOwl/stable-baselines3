@@ -70,8 +70,8 @@ if __name__ == '__main__':
     parser.add_argument('--randomness', type=float, default=1.0)
     parser.add_argument('--exp', type=str)
     parser.add_argument('--objscale', type=float, default=1.0)
-    parser.add_argument('--objcat', type=str, default="toycar")
-    parser.add_argument('--objname', type=str, default="035")
+    parser.add_argument('--objcat', type=str, default="random")
+    parser.add_argument('--objname', type=str, default="random")
     parser.add_argument('--objpc', type=int, default=100)
     parser.add_argument('--use_bn', type=bool, default=True)
     parser.add_argument('--dataset_path', type=str)
@@ -141,7 +141,7 @@ if __name__ == '__main__':
 
     model.learn(
         total_timesteps=int(env_iter),
-        bc_init_epoch=1000,
+        bc_init_epoch=100,
         bc_init_batch_size=500,
         callback=WandbCallback(
             model_save_freq=50,

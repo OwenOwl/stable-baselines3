@@ -49,16 +49,16 @@ from hand_teleop.utils.hoi4d_object_utils import sample_hoi4d_object_pc
 from hand_teleop.utils.munet import load_pretrained_munet
 
 if __name__ == '__main__':
-    model_path = "/home/lixing/results/model_pick_tmp.zip"
+    model_path = "/home/lixing/results/state_pick-0.002/model/model_2900.zip"
     model = PPO.load(path=model_path, env=None)
 
-    env = create_env(use_visual_obs=True, obj_scale=1.0, obj_name=("random", "random"))
+    env = create_env(use_visual_obs=True, obj_scale=1.0, obj_name=("random", "random"), pc_noise=True)
 
     env.set_seed(0)
 
     data = []
 
-    for iters in range(100):
+    for iters in tqdm.tqdm(range(300)):
         observations, actions = {"relocate-point_cloud": [], "state": []}, []
         obs = env.reset()
 
@@ -90,7 +90,10 @@ if __name__ == '__main__':
         observations["state"] = np.stack(observations["state"], axis=0)
         actions = np.stack(actions, axis=0)
         trajectory = {"observations" : observations, "actions" : actions}
-        data.append(trajectory)
+
+        dist = np.linalg.norm(env.target_in_object)
+        if dist <= 0.05:
+            data.append(trajectory)
     
     save_file = open("/home/lixing/results/data-test2.pkl", "wb")
     pickle.dump(data, save_file)
