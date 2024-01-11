@@ -121,7 +121,7 @@ if __name__ == '__main__':
 
             # IK Initial xarm pose by pinocchio
             lab_IK_model = lab_env.robot.create_pinocchio_model()
-            lab_PK_model = PartialKinematicModel(lab_env.robot, 'joint1', 'joint6')
+            lab_PK_model = PartialKinematicModel(lab_env.robot, 'joint1', 'joint7')
             link_name2id = {lab_env.robot.get_links()[i].get_name(): i for i in range(len(lab_env.robot.get_links()))}
             ee_link_id = link_name2id[lab_env.robot_info.palm_name]
             lab_pose_inv = lab_env.robot.get_pose().inv()
@@ -164,7 +164,9 @@ if __name__ == '__main__':
 
                 observation = np.concatenate([lab_obs, object_emb])
                 if not flipped:
-                    observation[35:39] = transforms3d.quaternions.mat2quat(transforms3d.quaternions.quat2mat(observation[35:39])
+                #     observation[35:39] = transforms3d.quaternions.mat2quat(transforms3d.quaternions.quat2mat(observation[35:39])
+                #                                                         @ transforms3d.quaternions.quat2mat(np.array([0, 0, 0, 1])))
+                    observation[37:41] = transforms3d.quaternions.mat2quat(transforms3d.quaternions.quat2mat(observation[37:41]) # xarm7
                                                                         @ transforms3d.quaternions.quat2mat(np.array([0, 0, 0, 1])))
                 observations.append(observation)
                 actions.append(lab_action)
