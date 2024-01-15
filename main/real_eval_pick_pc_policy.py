@@ -19,11 +19,15 @@ def create_env(use_gui=False, is_eval=False, obj_scale=1.0, obj_name="tomato_sou
                object_pc_sample=0, pc_noise=False, **renderer_kwargs):
     import os
     from hand_teleop.env.rl_env.free_pick_env import FreePickEnv
+    from hand_teleop.real_dexmv2.base import RealAbilityXArmEnv
     from hand_teleop.real_world import task_setting
     from hand_teleop.env.sim_env.constructor import add_default_scene_light
     frame_skip = 5
-    env_params = dict(object_scale=obj_scale, object_name=obj_name, use_gui=use_gui, object_pc_sample=object_pc_sample,
-                      frame_skip=frame_skip, no_rgb=True, use_visual_obs=True)
+    env_params = dict(
+        object_scale=obj_scale, object_name=obj_name, 
+        use_gui=use_gui, object_pc_sample=object_pc_sample,
+        frame_skip=frame_skip, no_rgb=True, use_visual_obs=True
+    )
     env_params.update(renderer_kwargs)
 
     if is_eval:
@@ -33,7 +37,10 @@ def create_env(use_gui=False, is_eval=False, obj_scale=1.0, obj_name="tomato_sou
     # Specify rendering device if the computing device is given
     if "CUDA_VISIBLE_DEVICES" in os.environ:
         env_params["device"] = "cuda"
-    env = FreePickEnv(**env_params)
+
+    env_params["xarm_ip"] = "192.168.1.209"
+    env_params["hand_address"] = 0x50
+    env = RealAbilityXArmEnv(**env_params)
 
     # Setup visual
     if not is_eval:
@@ -108,7 +115,7 @@ if __name__ == '__main__':
     env = create_env(
         obj_scale=obj_scale, obj_name=obj_name, 
         object_pc_sample=obj_pc_smp,
-        is_eval=True, use_gui=True
+        is_eval=True, use_gui=True, pc_noise=False
     )
 
     # if use_visual_obs:
@@ -131,8 +138,8 @@ if __name__ == '__main__':
     policy = DAPG.load(checkpoint_path, env, device)
     # else:
     #     raise NotImplementedError
-    print(policy)
-    print(policy.policy)
+    # print(policy)
+    # print(policy.policy)
     # exit()
 
     print(env.observation_space)
@@ -148,40 +155,41 @@ if __name__ == '__main__':
     # env.viewer = viewer
     # viewer.toggle_pause(True)
 
-    viewer = env.render()
-
+    # viewer = env.render()
+    env.reset()
 
     done = False
     manual_action = False
     action = np.zeros(22)
     traj_idx = 0
-    while not viewer.closed:
+    while True:
         reward_sum = 0
         obs = env.reset()
         traj_idx += 1
 
         pathlib.Path(f"temp_pics/{traj_idx}").mkdir(parents=True, exist_ok=True)
         for i in range(env.horizon):
-            print("Obs:", obs)
+            # print("Obs", obs)
             if manual_action:
                 action = np.concatenate([np.array([0, 0, 0.1, 0, 0, 0]), action[6:]])
             else:
                 action = policy.predict(observation=obs, deterministic=True)[0]
+            print("action:", action)
             obs, reward, done, _ = env.step(action)
-            print(obs.keys())
-            for k,v in obs.items():
-                print(k, v.shape)
-            print(action.shape)
+            # print(obs.keys())
+            # for k,v in obs.items():
+            #     print(k, v.shape)
+            # print(action.shape)
             reward_sum += reward
 
             # for _ in range(5):
             #     pass
-            env.render()
+            # env.render()
 
-            if env.viewer.window.key_down("enter"):
-                manual_action = True
-            elif env.viewer.window.key_down("p"):
-                manual_action = False
+            # if env.viewer.window.key_down("enter"):
+            #     manual_action = True
+            # elif env.viewer.window.key_down("p"):
+            #     manual_action = False
 
             
             if i % 10 == 0:
