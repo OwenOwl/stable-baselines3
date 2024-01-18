@@ -119,7 +119,7 @@ if __name__ == '__main__':
 
             # IK Initial xarm pose by pinocchio
             lab_IK_model = lab_env.robot.create_pinocchio_model()
-            lab_PK_model = PartialKinematicModel(lab_env.robot, 'joint1', 'joint6')
+            lab_PK_model = PartialKinematicModel(lab_env.robot, 'joint1', 'joint7')
             link_name2id = {lab_env.robot.get_links()[i].get_name(): i for i in range(len(lab_env.robot.get_links()))}
             ee_link_id = link_name2id[lab_env.robot_info.palm_name]
             lab_pose_inv = lab_env.robot.get_pose().inv()
