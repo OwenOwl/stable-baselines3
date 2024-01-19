@@ -15,7 +15,7 @@ from hand_teleop.utils.hoi4d_object_utils import HOI4D_OBJECT_LIST
 import random
 from datetime import datetime
 
-def create_lab_env(use_visual_obs, use_gui=False, obj_scale=1.0, obj_name="tomato_soup_can",
+def create_lab_env(use_visual_obs, use_gui=True, obj_scale=1.0, obj_name="tomato_soup_can",
                    obj_init_orientation=np.array([1, 0, 0, 0]), randomness_scale=1, pc_noise=True):
     import os
     from hand_teleop.env.rl_env.free_pick_env import FreePickEnv
@@ -52,9 +52,11 @@ import cv2
 if __name__ == '__main__':
     SAMPLE_OBJECT_PC_NUM = 100
     EMB_DIM = 32
-    model_path = "/home/lixing/results/rl_pick/model/model_1900.zip"
+    model_path = "/home/lixing/results/state_pick_rs-0.002/model/model_2200.zip"
+    # model_path = "/home/lixing/results/rl_pick/model/model_1000.zip"
     object_list = HOI4D_OBJECT_LIST['pick']
-    # object_list = [("bottle", "%03d"%(i)) for i in [9, 13, 17, 19]]
+    object_list = [("toycar", "%03d"%(i)) for i in range(2,51,2)] + [("bottle", "%03d"%(i)) for i in range(2,51,2)]
+    object_list = [("bottle", "%03d"%(i)) for i in [13]]
 
     pointnet = load_pretrained_munet()
 
@@ -66,7 +68,7 @@ if __name__ == '__main__':
 
         object_pc = sample_hoi4d_object_pc((object_cat, object_name), SAMPLE_OBJECT_PC_NUM)
 
-        lab_env = create_lab_env(use_visual_obs=False, obj_scale=0.5, obj_name=(object_cat, object_name),
+        lab_env = create_lab_env(use_visual_obs=False, obj_scale=1.3, obj_name=(object_cat, object_name),
                                 obj_init_orientation=np.array([0, 0, 0, 1]), randomness_scale=randomness)
         
         object_emb = pointnet.get_embedding(object_pc)
@@ -82,15 +84,15 @@ if __name__ == '__main__':
         from sapien.utils import Viewer
         from hand_teleop.env.sim_env.constructor import add_default_scene_light
 
-        # viewer = Viewer(lab_env.renderer)
-        # viewer.set_scene(lab_env.scene)
-        # add_default_scene_light(lab_env.scene, lab_env.renderer)
-        # lab_env.viewer = viewer
-        # viewer.toggle_pause(True)
+        viewer = Viewer(lab_env.renderer)
+        viewer.set_scene(lab_env.scene)
+        add_default_scene_light(lab_env.scene, lab_env.renderer)
+        lab_env.viewer = viewer
+        viewer.toggle_pause(True)
 
         model = PPO.load(path=model_path, env=None)
         
-        # lab_env.render()
+        lab_env.render()
 
         for i in range(lab_env.horizon):
             lab_action = model.policy.predict(observation=np.concatenate([lab_obs, object_emb]), deterministic=True)[0]
@@ -98,7 +100,7 @@ if __name__ == '__main__':
 
             for _ in range(5):
                 pass
-                # lab_env.render()
+                lab_env.render()
             
             # if i % 10 == 0:
             #     cam = lab_env.cameras["relocate_viz"]
