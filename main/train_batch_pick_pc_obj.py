@@ -80,7 +80,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     randomness = args.randomness
     now = datetime.now()
-    exp_keywords = [args.exp, str(args.objcat), str(args.objname)]
+    exp_keywords = [args.exp]
     horizon = 200
     env_iter = args.iter * horizon * args.n
     obj_scale = args.objscale

@@ -52,9 +52,10 @@ import cv2
 if __name__ == '__main__':
     SAMPLE_OBJECT_PC_NUM = 100
     EMB_DIM = 32
-    model_path = "/home/lixing/results/rl_pick/model/model_1900.zip"
-    object_list = HOI4D_OBJECT_LIST['pick']
-    # object_list = [("bottle", "%03d"%(i)) for i in [9, 13, 17, 19]]
+    model_path = "/home/lixing/results/pc_state_pick/model/model_0.zip"
+    # model_path = "/home/lixing/results/pc_rl_pick/model/model_0.zip"
+    object_list = HOI4D_OBJECT_LIST['pick'] # IN DISTRIBUTION
+    # object_list = HOI4D_OBJECT_LIST['pick_eval'] # OUT OF DISTRIBUTION
 
     pointnet = load_pretrained_munet()
 
