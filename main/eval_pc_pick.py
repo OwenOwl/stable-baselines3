@@ -16,22 +16,27 @@ import random
 from datetime import datetime
 
 def create_lab_env(use_visual_obs, use_gui=False, obj_scale=1.0, obj_name="tomato_soup_can",
-                   obj_init_orientation=np.array([1, 0, 0, 0]), randomness_scale=1, pc_noise=True):
+                   randomness_scale=1, pc_noise=True):
     import os
     from hand_teleop.env.rl_env.free_pick_env import FreePickEnv
     from hand_teleop.real_world import task_setting
     from hand_teleop.env.sim_env.constructor import add_default_scene_light
     frame_skip = 5
-    env_params = dict(object_scale=obj_scale, object_name=obj_name, obj_init_orientation=obj_init_orientation,
-                      use_gui=use_gui, frame_skip=frame_skip, no_rgb=True)
+    env_params = dict(object_scale=obj_scale, object_name=obj_name,
+                      use_gui=use_gui, frame_skip=frame_skip, no_rgb=True, use_visual_obs=use_visual_obs, object_pc_sample=100)
 
     # Specify rendering device if the computing device is given
     if "CUDA_VISIBLE_DEVICES" in os.environ:
         env_params["device"] = "cuda"
     env = FreePickEnv(**env_params)
 
-    if use_visual_obs:
-        raise NotImplementedError
+    # Setup visual
+    env.setup_camera_from_config(task_setting.CAMERA_CONFIG["relocate"])
+
+    if pc_noise:
+        env.setup_visual_obs_config(task_setting.OBS_CONFIG["relocate_noise"])
+    else:
+        env.setup_visual_obs_config(task_setting.OBS_CONFIG["relocate"])
     
     if use_gui:
         config = task_setting.CAMERA_CONFIG["viz_only"].copy()
@@ -50,8 +55,6 @@ from hand_teleop.utils.camera_utils import fetch_texture
 import cv2
 
 if __name__ == '__main__':
-    SAMPLE_OBJECT_PC_NUM = 100
-    EMB_DIM = 32
     model_path = "/home/lixing/results/pc_state_pick/model/model_0.zip"
     # model_path = "/home/lixing/results/pc_rl_pick/model/model_0.zip"
     object_list = HOI4D_OBJECT_LIST['pick'] # IN DISTRIBUTION
@@ -65,12 +68,8 @@ if __name__ == '__main__':
     for (object_cat, object_name) in tqdm.tqdm(object_list):
         randomness = 1.0
 
-        object_pc = sample_hoi4d_object_pc((object_cat, object_name), SAMPLE_OBJECT_PC_NUM)
-
-        lab_env = create_lab_env(use_visual_obs=False, obj_scale=0.5, obj_name=(object_cat, object_name),
-                                obj_init_orientation=np.array([0, 0, 0, 1]), randomness_scale=randomness)
-        
-        object_emb = pointnet.get_embedding(object_pc)
+        lab_env = create_lab_env(use_visual_obs=True, obj_scale=1, obj_name=(object_cat, object_name),
+                                 randomness_scale=randomness)
         
         lab_env.rl_step = lab_env.ability_arm_sim_step
 
@@ -94,7 +93,7 @@ if __name__ == '__main__':
         # lab_env.render()
 
         for i in range(lab_env.horizon):
-            lab_action = model.policy.predict(observation=np.concatenate([lab_obs, object_emb]), deterministic=True)[0]
+            lab_action = model.policy.predict(lab_obs, deterministic=True)[0]
             lab_obs, lab_reward, _, _ = lab_env.step(lab_action)
 
             for _ in range(5):
