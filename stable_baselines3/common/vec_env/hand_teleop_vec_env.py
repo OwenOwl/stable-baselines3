@@ -48,6 +48,10 @@ def _worker(
             cmd, data = remote.recv()
             if cmd == "step":
                 obs, reward, done, info = env.step(data)
+                if done:
+                    # save final observation where user can get it, then reset
+                    # info["terminal_observation"] = obs
+                    obs = env.reset()
                 remote.send((obs, reward, done, info))
             elif cmd == "reset":
                 obs = env.reset(seed=data)
@@ -472,7 +476,11 @@ def batch_process_relocate_pc(pc: torch.Tensor, num_points: int, noise_level=1):
     for i in range(batch):
         indices = within_indices[i][:, 0]
         num_index = len(indices)
-        if num_index < num_points:
+        if num_index == 0:
+            pc[i, 0] = torch.zeros([3], dtype=pc.dtype, device=device)
+            indices = torch.zeros(num_points, dtype=indices.dtype, device=device)
+            multiplicative_noise = torch.ones([num_points, 1], device=device)
+        elif num_index < num_points:
             indices = torch.cat(
                 [indices, torch.zeros(num_points - num_index, dtype=indices.dtype, device=device)])
             multiplicative_noise = 1 + torch.randn(num_index, device=device)[:,
