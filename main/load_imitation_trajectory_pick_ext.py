@@ -87,7 +87,7 @@ if __name__ == '__main__':
             flipped = True if np.all(env.init_orientation == np.array([0, 0, 0, 1])) else False
             
             env.rl_step = env.ability_sim_step_deterministic
-            lab_env.rl_step = lab_env.ability_arm_sim_step
+            lab_env.rl_step = lab_env.ability_arm_sim_step_old
 
             seed = random.randint(0, 1048576)
 
@@ -143,15 +143,13 @@ if __name__ == '__main__':
                 delta_pose = np.concatenate([(palm_target_pose.p - palm_pose.p) / div_n, delta_axis_world * delta_angle / div_n])
 
                 target_qpos = env.robot.get_qpos()[6:]
-                delta_qpos = (target_qpos - lab_env.robot.get_qpos()[lab_env.arm_dof:]) / div_n
-                target_qpos = lab_env.robot.get_qpos()[lab_env.arm_dof:] + delta_qpos
                 hand_old_qlimits = np.array([
                     [0, 2.0943951],
                     [0, 2.0943951],
                     [0, 2.0943951],
                     [0, 2.0943951],
                     [-2.0943951, 0],
-                    [0, 2.6586],
+                    [0, 2.0943951],
                 ])
                 action_qpos = (target_qpos[[0,2,4,6,8,9]] - hand_old_qlimits[:,0]) / (hand_old_qlimits[:,1] - hand_old_qlimits[:,0]) * 2 - 1
 

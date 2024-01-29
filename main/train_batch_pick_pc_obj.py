@@ -13,7 +13,7 @@ from stable_baselines3.dapg import DAPG
 
 
 def create_env(use_gui=False, is_eval=False, obj_scale=1.0, obj_name="tomato_soup_can",
-               object_pc_sample=0, pc_noise=False, **renderer_kwargs):
+               object_pc_sample=0, pc_noise=True, **renderer_kwargs):
     import os
     from hand_teleop.env.rl_env.free_pick_env import FreePickEnv
     from hand_teleop.real_world import task_setting
@@ -66,7 +66,7 @@ if __name__ == '__main__':
     parser.add_argument('--ep', type=int, default=10)
     parser.add_argument('--bs', type=int, default=200)
     parser.add_argument('--seed', type=int, default=100)
-    parser.add_argument('--iter', type=int, default=1000)
+    parser.add_argument('--iter', type=int, default=2000)
     parser.add_argument('--randomness', type=float, default=1.0)
     parser.add_argument('--exp', type=str)
     parser.add_argument('--objscale', type=float, default=1.0)
@@ -123,8 +123,8 @@ if __name__ == '__main__':
 
     model = DAPG("PointCloudPolicy", env, verbose=1,
                  dataset_path=args.dataset_path,
-                 bc_coef=1,
-                 bc_decay=0.99,
+                 bc_coef=0.002,
+                 bc_decay=1,
                  bc_batch_size=500,
                  n_epochs=args.ep,
                  n_steps=(args.n // args.workers) * horizon,
@@ -141,7 +141,7 @@ if __name__ == '__main__':
 
     model.learn(
         total_timesteps=int(env_iter),
-        bc_init_epoch=100,
+        bc_init_epoch=50,
         bc_init_batch_size=500,
         callback=WandbCallback(
             model_save_freq=50,

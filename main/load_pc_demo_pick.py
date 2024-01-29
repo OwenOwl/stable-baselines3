@@ -49,8 +49,8 @@ from hand_teleop.utils.hoi4d_object_utils import sample_hoi4d_object_pc
 from hand_teleop.utils.munet import load_pretrained_munet
 
 if __name__ == '__main__':
-    # model_path = "/home/lixing/results/state_pick-0.002/model/model_4950.zip"
-    model_path = "/home/lixing/results/rl_pick/model/model_4950.zip"
+    model_path = "/home/lixing/results/state_pick-0.002/model/model_3600.zip"
+    # model_path = "/home/lixing/results/rl_pick/model/model_4950.zip"
     model = PPO.load(path=model_path, env=None)
 
     env = create_env(use_visual_obs=True, obj_scale=1.0, obj_name=("random", "random"), pc_noise=True)
@@ -59,7 +59,7 @@ if __name__ == '__main__':
 
     data = []
 
-    for iters in tqdm.tqdm(range(300)):
+    for iters in tqdm.tqdm(range(1000)):
         observations, actions = {"relocate-point_cloud": [], "state": []}, []
         obs = env.reset()
 

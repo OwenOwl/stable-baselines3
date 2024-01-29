@@ -47,10 +47,10 @@ from hand_teleop.utils.camera_utils import fetch_texture
 import cv2
 
 if __name__ == '__main__':
-    f = open("results/eval/rl_pick.txt", "w")
+    f = open("results/eval/state_pick.txt", "w")
 
-    # model_path = "/home/lixing/results/state_pick-0.002/model/model_4950.zip"
-    model_path = "/home/lixing/results/rl_pick/model/model_4950.zip"
+    model_path = "/home/lixing/results/state_pick-0.002/model/model_3600.zip"
+    # model_path = "/home/lixing/results/rl_pick/model/model_4950.zip"
     object_list = HOI4D_OBJECT_LIST['pick'] # IN DISTRIBUTION
     # object_list = HOI4D_OBJECT_LIST['pick_eval'] # OUT OF DISTRIBUTION
 
