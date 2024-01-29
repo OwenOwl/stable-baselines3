@@ -141,7 +141,7 @@ if __name__ == '__main__':
 
     model.learn(
         total_timesteps=int(env_iter),
-        bc_init_epoch=50,
+        bc_init_epoch=5,
         bc_init_batch_size=500,
         callback=WandbCallback(
             model_save_freq=50,
