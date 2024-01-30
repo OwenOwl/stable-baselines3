@@ -640,11 +640,7 @@ class ActorCriticPolicy(BasePolicy):
             and entropy of the action distribution.
         """
         # Preprocess the observation if needed
-        if th.sum(obs["relocate-point_cloud"].isnan()==True):
-            print("obs nan")
         features = self.extract_features(obs)
-        if th.sum(features.isnan()==True):
-            print("feature nan")
         latent_pi, latent_vf = self.mlp_extractor(features)
         distribution = self._get_action_dist_from_latent(latent_pi)
         log_prob = distribution.log_prob(actions)
