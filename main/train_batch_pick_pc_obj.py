@@ -67,7 +67,7 @@ if __name__ == '__main__':
     parser.add_argument('--ep', type=int, default=10)
     parser.add_argument('--bs', type=int, default=200)
     parser.add_argument('--seed', type=int, default=100)
-    parser.add_argument('--iter', type=int, default=2000)
+    parser.add_argument('--iter', type=int, default=1)
     parser.add_argument('--randomness', type=float, default=1.0)
     parser.add_argument('--exp', type=str)
     parser.add_argument('--objscale', type=float, default=1.0)
@@ -146,7 +146,7 @@ if __name__ == '__main__':
 
     model.learn(
         total_timesteps=int(env_iter),
-        bc_init_epoch=0,
+        bc_init_epoch=50,
         bc_init_batch_size=500,
         callback=WandbCallback(
             model_save_freq=50,
