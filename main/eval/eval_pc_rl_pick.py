@@ -55,61 +55,64 @@ from hand_teleop.utils.camera_utils import fetch_texture
 import cv2
 
 if __name__ == '__main__':
+    f = open("results/eval/pc_state_pick_id.txt", "w")
+
     model_path = "/home/lixing/results/pc_state_pick/model/model_0.zip"
     # model_path = "/home/lixing/results/pc_rl_pick/model/model_0.zip"
-    object_list = HOI4D_OBJECT_LIST['pick'] # IN DISTRIBUTION
-    # object_list = HOI4D_OBJECT_LIST['pick_eval'] # OUT OF DISTRIBUTION
+    # object_list = HOI4D_OBJECT_LIST['pick'] # IN DISTRIBUTION
+    object_list = HOI4D_OBJECT_LIST['pick_eval'] # OUT OF DISTRIBUTION
 
     pointnet = load_pretrained_munet()
 
     succeed = 0
     seed = 0
-    
-    for (object_cat, object_name) in tqdm.tqdm(object_list):
-        randomness = 1.0
 
-        lab_env = create_lab_env(use_visual_obs=True, obj_scale=1, obj_name=(object_cat, object_name),
-                                 randomness_scale=randomness)
-        
-        lab_env.rl_step = lab_env.ability_arm_sim_step
+    for friction in [1, 0.9, 0.75, 0.5]:
+        for scale in [0.5, 0.7, 0.85, 1, 1.15, 1.3, 1.5]:
+            for ITERS in range(5):
+                succeed = 0
+                for (object_cat, object_name) in tqdm.tqdm(object_list):
+                    randomness = 1.0
 
-        seed += 1
+                    lab_env = create_lab_env(use_visual_obs=True, obj_scale=scale, friction=friction, obj_name=(object_cat, object_name),
+                                            randomness_scale=randomness)
+                    
+                    lab_env.rl_step = lab_env.ability_arm_sim_step
 
-        lab_env.set_seed(seed)
+                    seed += 1
 
-        lab_obs = lab_env.reset()
+                    lab_env.set_seed(seed)
 
-        from sapien.utils import Viewer
-        from hand_teleop.env.sim_env.constructor import add_default_scene_light
+                    lab_obs = lab_env.reset()
 
-        viewer = Viewer(lab_env.renderer)
-        viewer.set_scene(lab_env.scene)
-        add_default_scene_light(lab_env.scene, lab_env.renderer)
-        lab_env.viewer = viewer
-        viewer.toggle_pause(True)
+                    from sapien.utils import Viewer
+                    from hand_teleop.env.sim_env.constructor import add_default_scene_light
 
-        model = PPO.load(path=model_path, env=None)
-        
-        lab_env.render()
+                    # viewer = Viewer(lab_env.renderer)
+                    # viewer.set_scene(lab_env.scene)
+                    # add_default_scene_light(lab_env.scene, lab_env.renderer)
+                    # lab_env.viewer = viewer
+                    # viewer.toggle_pause(True)
 
-        for i in range(lab_env.horizon):
-            lab_action = model.policy.predict(lab_obs, deterministic=True)[0]
-            print(model.policy(model.policy.obs_to_tensor(lab_obs)[0], deterministic=True))
-            lab_obs, lab_reward, _, _ = lab_env.step(lab_action)
+                    model = PPO.load(path=model_path, env=None)
+                    
+                    # lab_env.render()
 
-            for _ in range(5):
-                pass
-                lab_env.render()
-            
-            # if i % 10 == 0:
-            #     cam = lab_env.cameras["relocate_viz"]
-            #     cam.take_picture()
-            #     img = fetch_texture(cam, "Color", return_torch=False)
-            #     cv2.imwrite("temp_pics/"+model_path.split('/')[4]+'_'+object_name+'_'+str(i)+".png", img*255)
-            
-            dist = np.linalg.norm(lab_env.target_in_object)
-            if dist <= 0.05:
-                succeed += 1
-                break
-    
-    print(succeed, len(object_list))
+                    for i in range(lab_env.horizon):
+                        lab_action = model.policy.predict(lab_obs, deterministic=True)[0]
+                        lab_obs, lab_reward, _, _ = lab_env.step(lab_action)
+
+                        for _ in range(5):
+                            pass
+                            # lab_env.render()
+                        
+                        dist = np.linalg.norm(lab_env.target_in_object)
+                        if dist <= 0.05:
+                            succeed += 1
+                            break
+                
+                print(succeed, " / ", len(object_list))
+                f.write("%.3f " % (succeed / len(object_list)))
+            f.write("\n")
+
+    f.close()
