@@ -47,67 +47,62 @@ from hand_teleop.utils.camera_utils import fetch_texture
 import cv2
 
 if __name__ == '__main__':
-    f = open("results/eval/rl_laptop.txt", "w")
+    f = open("results/eval/state_laptop.txt", "w")
 
-    # model_path = "/home/lixing/results/state_laptop-0.002/model/model_500.zip"
-    model_path = "/home/lixing/results/rl_laptop/model/model_500.zip"
-    object_list = HOI4D_OBJECT_LIST['laptop'] # IN DISTRIBUTION
-    # object_list = HOI4D_OBJECT_LIST['pick_eval'] # OUT OF DISTRIBUTION
+    model_path = "/home/lixing/results/state_laptop-0.002/model/model_1000.zip"
+    
+    object_list = HOI4D_OBJECT_LIST['laptop_eval'] # OUT OF DISTRIBUTION
 
     pointnet = load_pretrained_munet()
 
     succeed = 0
     seed = 0
     
-    for friction in [1, 0.9, 0.75, 0.5]:
-        for scale in [0.5, 0.7, 0.85, 1, 1.15, 1.3, 1.5]:
-            succeed = 0
-            for (object_cat, object_name) in tqdm.tqdm(object_list):
-                randomness = 1.0
+    for friction in [1, 0.7, 0.5, 0.2]:
+        for scale in [0.5, 0.75, 1, 1.25, 1.5]:
+            for ITERS in range(5):
+                succeed = 0
+                for (object_cat, object_name) in tqdm.tqdm(object_list):
+                    randomness = 1.0
 
-                lab_env = create_lab_env(use_visual_obs=False, obj_scale=scale, friction=friction, obj_name=(object_cat, object_name),
-                                        randomness_scale=randomness)
-                
-                lab_env.rl_step = lab_env.ability_arm_sim_step
-
-                seed += 1
-
-                lab_env.set_seed(seed)
-
-                lab_obs = lab_env.reset()
-
-                from sapien.utils import Viewer
-                from hand_teleop.env.sim_env.constructor import add_default_scene_light
-
-                # viewer = Viewer(lab_env.renderer)
-                # viewer.set_scene(lab_env.scene)
-                # add_default_scene_light(lab_env.scene, lab_env.renderer)
-                # lab_env.viewer = viewer
-                # viewer.toggle_pause(True)
-
-                model = PPO.load(path=model_path, env=None)
-                
-                # lab_env.render()
-
-                for i in range(lab_env.horizon):
-                    lab_action = model.policy.predict(lab_obs, deterministic=True)[0]
-                    lab_obs, lab_reward, _, _ = lab_env.step(lab_action)
-
-                    for _ in range(5):
-                        pass
-                        # lab_env.render()
+                    lab_env = create_lab_env(use_visual_obs=False, obj_scale=scale, friction=friction, obj_name=(object_cat, object_name),
+                                            randomness_scale=randomness)
                     
-                    # if i % 10 == 0:
-                    #     cam = lab_env.cameras["relocate_viz"]
-                    #     cam.take_picture()
-                    #     img = fetch_texture(cam, "Color", return_torch=False)
-                    #     cv2.imwrite("temp_pics/"+model_path.split('/')[4]+'_'+object_name+'_'+str(i)+".png", img*255)
+                    lab_env.rl_step = lab_env.ability_arm_sim_step
+
+                    seed += 1
+
+                    lab_env.set_seed(seed)
+
+                    lab_obs = lab_env.reset()
+
+                    from sapien.utils import Viewer
+                    from hand_teleop.env.sim_env.constructor import add_default_scene_light
+
+                    # viewer = Viewer(lab_env.renderer)
+                    # viewer.set_scene(lab_env.scene)
+                    # add_default_scene_light(lab_env.scene, lab_env.renderer)
+                    # lab_env.viewer = viewer
+                    # viewer.toggle_pause(True)
+
+                    model = PPO.load(path=model_path, env=None)
                     
-                    if lab_env.object.get_qpos()[0] >= np.pi / 12 * 5:
-                        succeed += 1
-                        break
-            
-            print(succeed, " / ", len(object_list))
-            f.write("%.3f\n" % (succeed / len(object_list)))
+                    # lab_env.render()
+
+                    for i in range(lab_env.horizon):
+                        lab_action = model.policy.predict(lab_obs, deterministic=True)[0]
+                        lab_obs, lab_reward, _, _ = lab_env.step(lab_action)
+
+                        for _ in range(5):
+                            pass
+                            # lab_env.render()
+
+                        if lab_env.object.get_qpos()[0] >= np.pi / 12 * 5:
+                            succeed += 1
+                            break
+                
+                print(succeed, " / ", len(object_list))
+                f.write("%.3f " % (succeed / len(object_list)))
+            f.write("\n")
 
     f.close()

@@ -15,14 +15,14 @@ from hand_teleop.utils.hoi4d_object_utils import HOI4D_OBJECT_LIST
 import random
 from datetime import datetime
 
-def create_lab_env(use_visual_obs, use_gui=True, obj_scale=1.0, obj_name="tomato_soup_can",
+def create_lab_env(use_visual_obs, use_gui=False, obj_scale=1.0, friction=1, obj_name="tomato_soup_can",
                    randomness_scale=1, pc_noise=True):
     import os
     from hand_teleop.env.rl_env.free_pick_env import FreePickEnv
     from hand_teleop.real_world import task_setting
     from hand_teleop.env.sim_env.constructor import add_default_scene_light
     frame_skip = 5
-    env_params = dict(object_scale=obj_scale, object_name=obj_name,
+    env_params = dict(object_scale=obj_scale, object_name=obj_name, friction=friction,
                       use_gui=use_gui, frame_skip=frame_skip, no_rgb=True, use_visual_obs=use_visual_obs, object_pc_sample=100)
 
     # Specify rendering device if the computing device is given
@@ -55,20 +55,19 @@ from hand_teleop.utils.camera_utils import fetch_texture
 import cv2
 
 if __name__ == '__main__':
-    f = open("results/eval/pc_state_pick_id.txt", "w")
+    f = open("results/eval/pc_state_pick.txt", "w")
 
     model_path = "/home/lixing/results/pc_state_pick/model/model_0.zip"
-    # model_path = "/home/lixing/results/pc_rl_pick/model/model_0.zip"
-    # object_list = HOI4D_OBJECT_LIST['pick'] # IN DISTRIBUTION
-    object_list = HOI4D_OBJECT_LIST['pick_eval'] # OUT OF DISTRIBUTION
+
+    object_list = HOI4D_OBJECT_LIST['pick'] # IN DISTRIBUTION
 
     pointnet = load_pretrained_munet()
 
     succeed = 0
     seed = 0
 
-    for friction in [1, 0.9, 0.75, 0.5]:
-        for scale in [0.5, 0.7, 0.85, 1, 1.15, 1.3, 1.5]:
+    for friction in [1, 0.7, 0.5, 0.2]:
+        for scale in [0.5, 0.75, 1, 1.25, 1.5]:
             for ITERS in range(5):
                 succeed = 0
                 for (object_cat, object_name) in tqdm.tqdm(object_list):

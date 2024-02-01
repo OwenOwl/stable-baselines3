@@ -18,7 +18,7 @@ from datetime import datetime
 def create_lab_env(use_visual_obs, use_gui=False, obj_scale=1.0, friction=1, obj_name="tomato_soup_can",
                    randomness_scale=1, pc_noise=True):
     import os
-    from hand_teleop.env.rl_env.free_safe_env import FreeSafeEnv
+    from hand_teleop.env.rl_env.free_laptop_env import FreeLaptopEnv
     from hand_teleop.real_world import task_setting
     from hand_teleop.env.sim_env.constructor import add_default_scene_light
     frame_skip = 5
@@ -28,7 +28,7 @@ def create_lab_env(use_visual_obs, use_gui=False, obj_scale=1.0, friction=1, obj
     # Specify rendering device if the computing device is given
     if "CUDA_VISIBLE_DEVICES" in os.environ:
         env_params["device"] = "cuda"
-    env = FreeSafeEnv(**env_params)
+    env = FreeLaptopEnv(**env_params)
     
     if use_gui:
         config = task_setting.CAMERA_CONFIG["viz_only"].copy()
@@ -47,11 +47,11 @@ from hand_teleop.utils.camera_utils import fetch_texture
 import cv2
 
 if __name__ == '__main__':
-    f = open("results/eval/state_safe.txt", "w")
+    f = open("results/eval/rl_laptop.txt", "w")
 
-    model_path = "/home/lixing/results/state_safe-0.002/model/model_500.zip"
+    model_path = "/home/lixing/results/rl_laptop/model/model_1000.zip"
     
-    object_list = HOI4D_OBJECT_LIST['safe_eval'] # OUT OF DISTRIBUTION
+    object_list = HOI4D_OBJECT_LIST['laptop_eval'] # OUT OF DISTRIBUTION
 
     pointnet = load_pretrained_munet()
 

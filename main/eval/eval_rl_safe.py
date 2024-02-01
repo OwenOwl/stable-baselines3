@@ -47,9 +47,9 @@ from hand_teleop.utils.camera_utils import fetch_texture
 import cv2
 
 if __name__ == '__main__':
-    f = open("results/eval/state_safe.txt", "w")
+    f = open("results/eval/rl_safe.txt", "w")
 
-    model_path = "/home/lixing/results/state_safe-0.002/model/model_500.zip"
+    model_path = "/home/lixing/results/rl_safe/model/model_500.zip"
     
     object_list = HOI4D_OBJECT_LIST['safe_eval'] # OUT OF DISTRIBUTION
 
