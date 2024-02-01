@@ -9,7 +9,8 @@ from hand_env_utils.arg_utils import *
 from hand_env_utils.wandb_callback import WandbCallback, setup_wandb
 from stable_baselines3.common.torch_layers import PointNetStateExtractor
 from stable_baselines3.common.vec_env.hand_teleop_vec_env import HandTeleopVecEnv
-from stable_baselines3.dapg import DAPG
+from stable_baselines3.dapg import DAPG2
+from stable_baselines3.ppo import PPO
 
 
 def create_env(use_gui=False, is_eval=False, obj_scale=1.0, obj_name="tomato_soup_can",
@@ -66,7 +67,7 @@ if __name__ == '__main__':
     parser.add_argument('--ep', type=int, default=10)
     parser.add_argument('--bs', type=int, default=200)
     parser.add_argument('--seed', type=int, default=100)
-    parser.add_argument('--iter', type=int, default=2000)
+    parser.add_argument('--iter', type=int, default=1)
     parser.add_argument('--randomness', type=float, default=1.0)
     parser.add_argument('--exp', type=str)
     parser.add_argument('--objscale', type=float, default=1.0)
@@ -75,6 +76,7 @@ if __name__ == '__main__':
     parser.add_argument('--objpc', type=int, default=100)
     parser.add_argument('--use_bn', type=bool, default=True)
     parser.add_argument('--dataset_path', type=str)
+    parser.add_argument('--model_path', type=str)
     parser.add_argument('--noise_pc', type=bool, default=True)
 
     args = parser.parse_args()
@@ -121,8 +123,11 @@ if __name__ == '__main__':
         "activation_fn": nn.ReLU,
     }
 
-    model = DAPG("PointCloudPolicy", env, verbose=1,
+    state_model = PPO.load(path=args.model_path, env=None)
+
+    model = DAPG2("PointCloudPolicy", env, verbose=1,
                  dataset_path=args.dataset_path,
+                 state_model=state_model,
                  bc_coef=0.002,
                  bc_decay=1,
                  bc_batch_size=500,
@@ -141,7 +146,7 @@ if __name__ == '__main__':
 
     model.learn(
         total_timesteps=int(env_iter),
-        bc_init_epoch=5,
+        bc_init_epoch=50,
         bc_init_batch_size=500,
         callback=WandbCallback(
             model_save_freq=50,
