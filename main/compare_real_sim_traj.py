@@ -1,14 +1,25 @@
 import numpy as np
 import pickle
 
-traj_root = "temp_trajs_0115"
-traj_idx = 1
+real_traj_root = "real_trajs_0128_replay"
+real_traj_idx = 1
 
-with open(f"{traj_root}/{traj_idx}/real_traj.pkl", "rb") as f:
+
+
+sim_traj_root = "temp_trajs_0128"
+sim_traj_idx = 1
+
+with open(f"{real_traj_root}/{real_traj_idx}/obs_traj.pkl", "rb") as f:
     real_traj = pickle.load(f)
 
-with open(f"{traj_root}/{traj_idx}/obs_traj.pkl", "rb") as f:
+with open(f"{sim_traj_root}/{sim_traj_idx}/obs_traj.pkl", "rb") as f:
     obs_traj = pickle.load(f)
+
+with open(f"{sim_traj_root}/{sim_traj_idx}/action_traj.pkl", "rb") as f:
+    act_traj = pickle.load(f)
+
+# with open(f"{traj_root}/{traj_idx}/action_traj.pkl", "rb") as f:
+#         traj = pickle.load(f)
 
 
 def get_abh_4bar_driven_angle(q1):
@@ -86,40 +97,74 @@ def get_intersection_circles(o0, r0, o1, r1):
 
 
 
-for real_state, sim_obs in zip(real_traj, obs_traj):
+hand_q_limit = np.array([
+    [ 0.         ,2.0943952],
+ [ 0.         ,2.0943952],
+ [ 0.         ,2.0943952],
+ [ 0.         ,2.0943952],
+ [-2.0943952  ,0.       ],
+ [ 0.         ,2.0943952]
+])
+
+def recover_action(action, limit):
+    action = (action + 1) / 2 * (limit[:, 1] - limit[:, 0]) + limit[:, 0]
+    return action
+
+
+for real_state, sim_obs, action in zip(real_traj, obs_traj, act_traj):
     sim_state = sim_obs["state"]
+    real_state = real_state["state"]
 
     sim_arm_qpos = sim_state[:7]
     real_arm_qpos = real_state[:7]
 
-    sim_hand_qpos = sim_state[7: 17]
-    real_hand_qpos = real_state[7: 17]
+    sim_hand_qpos = sim_state[7: 13]
+    real_hand_qpos = real_state[7: 13]
 
-    sim_palm_pose = sim_state[17:]
-    real_palm_pose = real_state[17:]
+    sim_palm_pose = sim_state[13:]
+    real_palm_pose = real_state[13:]
 
     print("-" * 20)
-    print(
-        "Arm", np.abs(real_arm_qpos - sim_arm_qpos) < 1e-4, np.sum(np.abs((real_arm_qpos - sim_arm_qpos) < 1e-4))
-    )
+    # print(
+    #     "Arm", np.abs(real_arm_qpos - sim_arm_qpos) < 1e-4, np.sum(np.abs((real_arm_qpos - sim_arm_qpos) < 1e-4))
+    # )
 
-    print(
-        "Hand", np.abs(real_hand_qpos - sim_hand_qpos) < 1e-4, np.sum(np.abs((real_hand_qpos - sim_hand_qpos) < 1e-4))
-    )
+    # print(
+    #     "Hand", np.abs(real_hand_qpos - sim_hand_qpos) < 1e-4, np.sum(np.abs((real_hand_qpos - sim_hand_qpos) < 1e-4))
+    # )
 
+
+    hand_qpos = recover_action(action[6:], hand_q_limit)
+    hand_qlimits = np.array([ # Only 1st bend is limited, 2nd is calculated. Thumb is limited
+		[0.27, 1.30],
+		# [0, 2.6586],
+		[0.27, 1.30],
+		# [0, 2.6586],
+		[0.27, 1.30],
+		# [0, 2.6586],
+		[0.27, 1.30],
+		# [0, 2.6586],
+		[-1.30, -0.27],
+		[0.27, 1.30],
+	]) # Clip to real
+    hand_qpos = np.clip(hand_qpos, hand_qlimits[:, 0], hand_qlimits[:, 1])
+    
     print(
-        "Hand", (real_hand_qpos - sim_hand_qpos)
+        "Hand Action",  hand_qpos
     )
+    # print(
+    #     "Hand", (real_hand_qpos - sim_hand_qpos)
+    # )
 
     print(
         "Hand Sim", sim_hand_qpos
     )
 
-    for i in range(4):
-        sim_hand_qpos[i * 2 + 1] = get_abh_4bar_driven_angle(sim_hand_qpos[i * 2])
-    print(
-        "Modified Hand Sim", sim_hand_qpos
-    )
+    # for i in range(4):
+    #     sim_hand_qpos[i * 2 + 1] = get_abh_4bar_driven_angle(sim_hand_qpos[i * 2])
+    # print(
+    #     "Modified Hand Sim", sim_hand_qpos
+    # )
 
     print(
         "Hand Real", real_hand_qpos

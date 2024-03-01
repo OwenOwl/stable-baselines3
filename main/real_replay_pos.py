@@ -152,8 +152,8 @@ if __name__ == '__main__':
     from hand_teleop.env.sim_env.constructor import add_default_scene_light
 
 
-    traj_root = "temp_trajs_0115"
-    traj_idx = 1
+    traj_root = "temp_trajs_0122"
+    traj_idx = 5
 
     with open(f"{traj_root}/{traj_idx}/action_traj.pkl", "rb") as f:
         traj = pickle.load(f)

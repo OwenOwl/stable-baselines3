@@ -36,17 +36,17 @@ def create_video(frames, output_path='output.mp4', fps=30):
 
 # Load your point cloud data here (this is just an example)
 
-traj_root = "real_trajs_0129"
+traj_root = "real_trajs_0201"
 # traj_root = "sim_trajs_0129"
 traj_idx = 1
 
-with open(f"{traj_root}/{traj_idx}/obs_traj.pkl", "rb") as f:
-    traj = pickle.load(f)
+time_idx = 1
 
-print(traj[0])
-point_clouds = [
-    obs["relocate-point_cloud"] for obs in traj
-]  # Replace with your sequence of point clouds
+with open(f"{traj_root}/{traj_idx}/pcs/{time_idx}.pkl", "rb") as f:
+    obs = pickle.load(f)
+
+# print(traj[0])
+point_clouds = obs["relocate-point_cloud"]
 
 
 # camera_pose = {
@@ -76,7 +76,7 @@ point_clouds = [
 # create_video(frames, "real_pc_001.mp4")
 
 
-new_points_for_visual = point_clouds[10][:,:3]
+new_points_for_visual = point_clouds[:,:3]
 print(new_points_for_visual.shape)
 camera_obs = o3d.geometry.PointCloud()
 camera_obs.points = o3d.utility.Vector3dVector(new_points_for_visual)

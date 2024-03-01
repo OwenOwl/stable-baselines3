@@ -151,7 +151,7 @@ if __name__ == '__main__':
     from hand_teleop.env.sim_env.constructor import add_default_scene_light
 
 
-    traj_root = "temp_trajs_0115"
+    traj_root = "temp_trajs_0128"
     traj_idx = 1
 
     with open(f"{traj_root}/{traj_idx}/action_traj.pkl", "rb") as f:
@@ -176,10 +176,16 @@ if __name__ == '__main__':
 
     reward_sum = 0
     obs = env.reset()
-    traj_idx += 1
+    # traj_idx += 1
+    traj_idx = 1
 
+    real_root = "real_trajs_0128_replay"
+    pathlib.Path(f"{real_root}/{traj_idx}/pcs").mkdir(parents=True, exist_ok=True)
 
-    # pathlib.Path(f"temp_pics/{traj_idx}").mkdir(parents=True, exist_ok=True)
+    obs_sequence = []
+    action_sequence = []
+
+    pathlib.Path(f"temp_pics/{traj_idx}").mkdir(parents=True, exist_ok=True)
     for action in traj:
         # print("Obs", obs)
         # if manual_action:
@@ -189,6 +195,9 @@ if __name__ == '__main__':
         # print("action:", action)
         obs, reward, done, _ = env.step(action)
 
+
+        action_sequence.append(action)
+        obs_sequence.append(obs)
         # print(obs.keys())
         # for k,v in obs.items():
         #     print(k, v.shape)
@@ -211,4 +220,11 @@ if __name__ == '__main__':
         #     img = fetch_texture(cam, "Color", return_torch=False)
         #     cv2.imwrite(f"temp_pics/{traj_idx}/{str(i)}.png", img*255)
 
+
         print(f"Reward: {reward_sum}")
+        with open(f"{real_root}/{traj_idx}/action_traj.pkl", "wb") as f:
+            pickle.dump(action_sequence, f)
+        with open(f"{real_root}/{traj_idx}/obs_traj.pkl", "wb") as f:
+            pickle.dump(obs_sequence, f)
+
+    env.stop()

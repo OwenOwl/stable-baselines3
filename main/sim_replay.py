@@ -50,7 +50,7 @@ def create_env(use_gui=False, is_eval=False, obj_scale=1.0, obj_name="tomato_sou
         env.setup_visual_obs_config(task_setting.OBS_CONFIG["relocate_noise"])
     else:
         env.setup_visual_obs_config(task_setting.OBS_CONFIG["relocate"])
-    print(pc_noise)
+
     return env
 
 
@@ -109,7 +109,7 @@ if __name__ == '__main__':
     env = create_env(
         obj_scale=obj_scale, obj_name=obj_name, 
         object_pc_sample=obj_pc_smp,
-        is_eval=True, use_gui=True, pc_noise=True
+        is_eval=True, use_gui=True
     )
 
     # if use_visual_obs:
@@ -151,60 +151,142 @@ if __name__ == '__main__':
 
     viewer = env.render()
 
-    root = "sim_trajs_0201"
+    # root = "temp_trajs_0116"
 
     done = False
     manual_action = False
     action = np.zeros(22)
     traj_idx = 0
     # while not viewer.closed:
-    for i in range(5):
-        reward_sum = 0
-        obs = env.reset()
-        traj_idx += 1
+    # for i in range(5):
+    #     reward_sum = 0
+    #     obs = env.reset()
+    #     traj_idx += 1
 
-        pathlib.Path(f"{root}/{traj_idx}/imgs").mkdir(parents=True, exist_ok=True)
-        action_sequence = []
-        obs_sequence = []
-        frames = []
-        for i in range(env.horizon):
-            # print("Obs:", obs)
-            if manual_action:
-                action = np.concatenate([np.array([0, 0, 0.1, 0, 0, 0]), action[6:]])
-            else:
-                action = policy.predict(observation=obs, deterministic=True)[0]
-            obs, reward, done, _ = env.step(action)
-            action_sequence.append(action)
-            obs_sequence.append(obs)
-            # print(obs.keys())
-            # for k,v in obs.items():
-            #     print(k, v.shape)
-            # print(action.shape)
-            reward_sum += reward
+    #     pathlib.Path(f"{root}/{traj_idx}/imgs").mkdir(parents=True, exist_ok=True)
+    #     action_sequence = []
+    #     obs_sequence = []
+    #     frames = []
+    #     for i in range(env.horizon):
+    #         # print("Obs:", obs)
+    #         if manual_action:
+    #             action = np.concatenate([np.array([0, 0, 0.1, 0, 0, 0]), action[6:]])
+    #         else:
+    #             action = policy.predict(observation=obs, deterministic=True)[0]
+    #         obs, reward, done, _ = env.step(action)
+    #         action_sequence.append(action)
+    #         obs_sequence.append(obs)
+    #         # print(obs.keys())
+    #         # for k,v in obs.items():
+    #         #     print(k, v.shape)
+    #         # print(action.shape)
+    #         reward_sum += reward
 
-            # for _ in range(5):
-            #     pass
-            env.render()
+    #         # for _ in range(5):
+    #         #     pass
+    #         env.render()
 
-            print("Time Step:", env.control_time_step, env.scene.get_timestep())
+    #         print("Time Step:", env.control_time_step, env.scene.get_timestep())
 
-            if env.viewer.window.key_down("enter"):
-                manual_action = True
-            elif env.viewer.window.key_down("p"):
-                manual_action = False
+    #         if env.viewer.window.key_down("enter"):
+    #             manual_action = True
+    #         elif env.viewer.window.key_down("p"):
+    #             manual_action = False
 
-            cam = env.cameras["relocate_viz"]
-            cam.take_picture()
-            img = fetch_texture(cam, "Color", return_torch=False)
-            frames.append(img)
-            if i % 10 == 0:
-                cv2.imwrite(f"{root}/{traj_idx}/imgs/{str(i)}.png", img*255)
-        with open(f"{root}/{traj_idx}/action_traj.pkl", "wb") as f:
-            pickle.dump(action_sequence, f)
-        with open(f"{root}/{traj_idx}/obs_traj.pkl", "wb") as f:
-            pickle.dump(obs_sequence, f)
+    #         cam = env.cameras["relocate_viz"]
+    #         cam.take_picture()
+    #         img = fetch_texture(cam, "Color", return_torch=False)
+    #         frames.append(img)
+    #         if i % 10 == 0:
+    #             cv2.imwrite(f"{root}/{traj_idx}/imgs/{str(i)}.png", img*255)
+    #     with open(f"{root}/{traj_idx}/action_traj.pkl", "wb") as f:
+    #         pickle.dump(action_sequence, f)
+    #     with open(f"{root}/{traj_idx}/obs_traj.pkl", "wb") as f:
+    #         pickle.dump(obs_sequence, f)
 
-        output_filename = f"{root}/{traj_idx}/sim_traj.mp4"
-        print(output_filename)
-        imageio.mimsave(output_filename, frames, fps=20)
+    #     output_filename = f"{root}/{traj_idx}/sim_traj.mp4"
+    #     print(output_filename)
+    #     imageio.mimsave(output_filename, frames, fps=20)
+    #     print(f"Reward: {reward_sum}")
+
+
+
+    traj_root = "temp_trajs_0115"
+    traj_idx = 1
+
+    with open(f"{traj_root}/{traj_idx}/action_traj.pkl", "rb") as f:
+        traj = pickle.load(f)
+
+    # print(traj)
+    # exit()
+
+    # viewer = Viewer(env.renderer)
+    # viewer.set_scene(env.scene)
+    # add_default_scene_light(env.scene, env.renderer)
+    # env.viewer = viewer
+    # viewer.toggle_pause(True)
+
+    # viewer = env.render()
+    env.reset()
+
+    # done = False
+    # manual_action = False
+    # action = np.zeros(22)
+    # while True:
+
+    reward_sum = 0
+    obs = env.reset()
+    # traj_idx += 1
+
+    frames = []
+    pathlib.Path(f"{traj_root}/{traj_idx}/sim_replay_imgs").mkdir(parents=True, exist_ok=True)
+    for i, action in enumerate(traj):
+        # print("Obs", obs)
+        # if manual_action:
+        #     action = np.concatenate([np.array([0, 0, 0.1, 0, 0, 0]), action[6:]])
+        # else:
+        #     action = policy.predict(observation=obs, deterministic=True)[0]
+        # print("action:", action)
+        obs, reward, done, _ = env.step(action)
+
+        # print(obs.keys())
+        # for k,v in obs.items():
+        #     print(k, v.shape)
+        # print(action.shape)
+        reward_sum += reward
+
+        # for _ in range(5):
+        #     pass
+        # env.render()
+
+        # if env.viewer.window.key_down("enter"):
+        #     manual_action = True
+        # elif env.viewer.window.key_down("p"):
+        #     manual_action = False
+
+        
+        # if i % 10 == 0:
+        #     cam = env.cameras["relocate_viz"]
+        #     cam.take_picture()
+        #     img = fetch_texture(cam, "Color", return_torch=False)
+        #     cv2.imwrite(f"temp_pics/{traj_idx}/{str(i)}.png", img*255)
+
+    #         frames.append(img)
+    #         if i % 10 == 0:
+    #             cv2.imwrite(f"{root}/{traj_idx}/imgs/{str(i)}.png", img*255)
         print(f"Reward: {reward_sum}")
+        cam = env.cameras["relocate_viz"]
+        cam.take_picture()
+        img = fetch_texture(cam, "Color", return_torch=False)
+        frames.append(img)
+        if i % 10 == 0:
+            cv2.imwrite(f"{traj_root}/{traj_idx}/sim_replay_imgs/{str(i)}.png", img*255)
+    # with open(f"{root}/{traj_idx}/action_traj.pkl", "wb") as f:
+    #     pickle.dump(action_sequence, f)
+    # with open(f"{root}/{traj_idx}/obs_traj.pkl", "wb") as f:
+    #     pickle.dump(obs_sequence, f)
+
+    output_filename = f"{traj_root}/{traj_idx}/sim_replay_traj.mp4"
+    print(output_filename)
+    imageio.mimsave(output_filename, frames, fps=20)
+    print(f"Reward: {reward_sum}")

@@ -1,3 +1,4 @@
+import pickle
 import numpy as np
 import torch
 import torch.nn as nn
@@ -161,13 +162,23 @@ if __name__ == '__main__':
     done = False
     manual_action = False
     action = np.zeros(22)
+    # while True:
+
+    root = "real_trajs_0122"
+
+    obs_sequence = []
+    action_sequence = []
+
     traj_idx = 0
-    while True:
+    pathlib.Path(f"{root}/{traj_idx}/pcs").mkdir(parents=True, exist_ok=True)
+    
+
+    for i in range(1):
         reward_sum = 0
         obs = env.reset()
-        traj_idx += 1
+        # traj_idx += 1
 
-        pathlib.Path(f"temp_pics/{traj_idx}").mkdir(parents=True, exist_ok=True)
+        # pathlib.Path(f"temp_pics/{traj_idx}").mkdir(parents=True, exist_ok=True)
         for i in range(env.horizon):
             # print("Obs", obs)
             if manual_action:
@@ -175,6 +186,10 @@ if __name__ == '__main__':
             else:
                 action = policy.predict(observation=obs, deterministic=True)[0]
             print("action:", action)
+            print("obs - robo state: ", obs["state"])
+            action_sequence.append(action)
+            obs_sequence.append(obs)
+
             obs, reward, done, _ = env.step(action)
             # print(obs.keys())
             # for k,v in obs.items():
@@ -192,10 +207,15 @@ if __name__ == '__main__':
             #     manual_action = False
 
             
-            if i % 10 == 0:
-                cam = env.cameras["relocate_viz"]
-                cam.take_picture()
-                img = fetch_texture(cam, "Color", return_torch=False)
-                cv2.imwrite(f"temp_pics/{traj_idx}/{str(i)}.png", img*255)
+            # if i % 10 == 0:
+            #     cam = env.cameras["relocate_viz"]
+            #     cam.take_picture()
+            #     img = fetch_texture(cam, "Color", return_torch=False)
+            #     cv2.imwrite(f"temp_pics/{traj_idx}/{str(i)}.png", img*255)
     
         print(f"Reward: {reward_sum}")
+
+    with open(f"{root}/{traj_idx}/action_traj.pkl", "wb") as f:
+        pickle.dump(action_sequence, f)
+    with open(f"{root}/{traj_idx}/obs_traj.pkl", "wb") as f:
+        pickle.dump(obs_sequence, f)
