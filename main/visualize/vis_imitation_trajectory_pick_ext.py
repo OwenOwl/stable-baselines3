@@ -27,10 +27,8 @@ def create_env(use_visual_obs, use_gui=False, obj_scale=1.0, obj_name="tomato_so
     # Specify rendering device if the computing device is given
     if "CUDA_VISIBLE_DEVICES" in os.environ:
         env_params["device"] = "cuda"
-    env = ImitationPickEnv(**env_params)
 
-    if use_visual_obs:
-        raise NotImplementedError
+    env = ImitationPickEnv(**env_params)
     
     return env
 
@@ -47,10 +45,16 @@ def create_lab_env(use_visual_obs, use_gui=False, obj_scale=1.0, obj_name="tomat
     # Specify rendering device if the computing device is given
     if "CUDA_VISIBLE_DEVICES" in os.environ:
         env_params["device"] = "cuda"
+    
+    env_params["no_rgb"] = False 
+    env_params["need_offscreen_render"] = True
+
     env = FreePickEnv(**env_params)
 
-    if use_visual_obs:
-        raise NotImplementedError
+    config = task_setting.CAMERA_CONFIG["viz_only"].copy()
+    config.update(task_setting.CAMERA_CONFIG["relocate"])
+    env.setup_camera_from_config(config)
+    add_default_scene_light(env.scene, env.renderer)
     
     return env
 
@@ -59,6 +63,8 @@ import os, tqdm, pickle
 from hoi4d_data.hoi4d_config import hoi4d_config
 from hand_teleop.utils.hoi4d_object_utils import sample_hoi4d_object_pc
 from hand_teleop.utils.munet import load_pretrained_munet
+from hand_teleop.utils.camera_utils import fetch_texture
+import cv2
 
 if __name__ == '__main__':
     SAMPLE_OBJECT_PC_NUM = 100
@@ -71,7 +77,9 @@ if __name__ == '__main__':
     data = []
     
     for model_exp in tqdm.tqdm(model_list[:]):
-        for iters in range(32):
+        for iters in range(1):
+            save_str = "pics/im_arm_"+model_exp+"/"
+            os.makedirs(save_str, exist_ok=True)
             model_args = model_exp.split("-")
             data_id = int(model_args[1])
             randomness = 1.0
@@ -230,6 +238,13 @@ if __name__ == '__main__':
                     pass
                     # lab_env.render()
                     # env.render()
+                    
+                if i % 10 == 0:
+                    lab_env.scene.update_render()
+                    cam = lab_env.cameras["relocate_viz"]
+                    cam.take_picture()
+                    img = fetch_texture(cam, "Color", return_torch=False)
+                    cv2.imwrite(save_str+str(i)+".png", img*255)
                 
                 palm_pose = lab_pose_inv * lab_env.palm_link.get_pose()
             

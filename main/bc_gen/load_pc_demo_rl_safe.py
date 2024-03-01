@@ -17,7 +17,7 @@ from datetime import datetime
 def create_env(use_visual_obs=True, use_gui=False, obj_scale=1.0, obj_name=None,
                randomness_scale=1, pc_noise=False, is_eval=False):
     import os
-    from hand_teleop.env.rl_env.free_pick_env import FreePickEnv
+    from hand_teleop.env.rl_env.free_safe_env import FreeSafeEnv
     from hand_teleop.real_world import task_setting
     from hand_teleop.env.sim_env.constructor import add_default_scene_light
     frame_skip = 5
@@ -27,7 +27,7 @@ def create_env(use_visual_obs=True, use_gui=False, obj_scale=1.0, obj_name=None,
     # Specify rendering device if the computing device is given
     if "CUDA_VISIBLE_DEVICES" in os.environ:
         env_params["device"] = "cuda"
-    env = FreePickEnv(**env_params)
+    env = FreeSafeEnv(**env_params)
 
     # Setup visual
     env.setup_camera_from_config(task_setting.CAMERA_CONFIG["relocate"])
@@ -49,7 +49,7 @@ from hand_teleop.utils.hoi4d_object_utils import sample_hoi4d_object_pc
 from hand_teleop.utils.munet import load_pretrained_munet
 
 if __name__ == '__main__':
-    model_path = "/data/lixing/results/state_pick-0.002/model/model_4950.zip"
+    model_path = "/data/lixing/results/rl_safe/model/model_500.zip"
     model = PPO.load(path=model_path, env=None)
 
     env = create_env(use_visual_obs=True, obj_scale=1.0, obj_name=("random", "random"), pc_noise=True)
@@ -58,7 +58,7 @@ if __name__ == '__main__':
 
     data = []
 
-    for iters in tqdm.tqdm(range(1000)):
+    for iters in tqdm.tqdm(range(500)):
         observations, actions = {"relocate-point_cloud": [], "state": []}, []
         obs = env.reset()
 
@@ -91,11 +91,10 @@ if __name__ == '__main__':
         actions = np.stack(actions, axis=0)
         trajectory = {"observations" : observations, "actions" : actions}
 
-        dist = np.linalg.norm(env.target_in_object)
-        if dist <= 0.05:
+        if env.object.get_qpos()[0] >= np.pi / 12 * 5:
             data.append(trajectory)
     
-    save_file = open("/data/lixing/data/data-state-pick.pkl", "wb")
+    save_file = open("/data/lixing/data/data-rl-safe.pkl", "wb")
     pickle.dump(data, save_file)
     save_file.close()
     print(len(data))

@@ -17,7 +17,7 @@ from datetime import datetime
 def create_env(use_visual_obs, use_gui=False, obj_scale=1.0, obj_name="tomato_soup_can",
                data_id=0, randomness_scale=1, pc_noise=True):
     import os
-    from hand_teleop.env.rl_env.imitation_pick_env import ImitationPickEnv
+    from hand_teleop.env.rl_env.imitation_laptop_env import ImitationLaptopEnv
     from hand_teleop.real_world import task_setting
     from hand_teleop.env.sim_env.constructor import add_default_scene_light
     frame_skip = 5
@@ -27,7 +27,16 @@ def create_env(use_visual_obs, use_gui=False, obj_scale=1.0, obj_name="tomato_so
     # Specify rendering device if the computing device is given
     if "CUDA_VISIBLE_DEVICES" in os.environ:
         env_params["device"] = "cuda"
-    env = ImitationPickEnv(**env_params)
+    
+    env_params["no_rgb"] = False 
+    env_params["need_offscreen_render"] = True
+
+    env = ImitationLaptopEnv(**env_params)
+
+    config = task_setting.CAMERA_CONFIG["viz_only"].copy()
+    config.update(task_setting.CAMERA_CONFIG["relocate"])
+    env.setup_camera_from_config(config)
+    add_default_scene_light(env.scene, env.renderer)
 
     if use_visual_obs:
         raise NotImplementedError
@@ -37,7 +46,7 @@ def create_env(use_visual_obs, use_gui=False, obj_scale=1.0, obj_name="tomato_so
 def create_lab_env(use_visual_obs, use_gui=False, obj_scale=1.0, obj_name="tomato_soup_can",
                    obj_init_orientation=np.array([1, 0, 0, 0]), randomness_scale=1, pc_noise=True):
     import os
-    from hand_teleop.env.rl_env.free_pick_env import FreePickEnv
+    from hand_teleop.env.rl_env.free_laptop_env import FreeLaptopEnv
     from hand_teleop.real_world import task_setting
     from hand_teleop.env.sim_env.constructor import add_default_scene_light
     frame_skip = 5
@@ -47,7 +56,7 @@ def create_lab_env(use_visual_obs, use_gui=False, obj_scale=1.0, obj_name="tomat
     # Specify rendering device if the computing device is given
     if "CUDA_VISIBLE_DEVICES" in os.environ:
         env_params["device"] = "cuda"
-    env = FreePickEnv(**env_params)
+    env = FreeLaptopEnv(**env_params)
 
     if use_visual_obs:
         raise NotImplementedError
@@ -59,19 +68,23 @@ import os, tqdm, pickle
 from hoi4d_data.hoi4d_config import hoi4d_config
 from hand_teleop.utils.hoi4d_object_utils import sample_hoi4d_object_pc
 from hand_teleop.utils.munet import load_pretrained_munet
+from hand_teleop.utils.camera_utils import fetch_texture
+import cv2
 
 if __name__ == '__main__':
     SAMPLE_OBJECT_PC_NUM = 100
     EMB_DIM = 32
-    model_list_path = "/home/lixing/results/result-pick"
+    model_list_path = "/home/lixing/results/result-laptop"
     model_list = os.listdir(model_list_path)
 
     pointnet = load_pretrained_munet()
 
     data = []
     
-    for model_exp in tqdm.tqdm(model_list[:]):
-        for iters in range(32):
+    for model_exp in tqdm.tqdm(model_list):
+        for iters in range(1):
+            save_str = "pics/im_"+model_exp+"/"
+            os.makedirs(save_str, exist_ok=True)
             model_args = model_exp.split("-")
             data_id = int(model_args[1])
             randomness = 1.0
@@ -83,8 +96,6 @@ if __name__ == '__main__':
                             data_id=data_id, randomness_scale=randomness)
             lab_env = create_lab_env(use_visual_obs=False, obj_scale=1.0, obj_name=(object_cat, object_name),
                                     obj_init_orientation=env.init_orientation, randomness_scale=randomness)
-
-            flipped = True if np.all(env.init_orientation == np.array([0, 0, 0, 1])) else False
             
             env.rl_step = env.ability_sim_step_deterministic
             lab_env.rl_step = lab_env.ability_arm_sim_step
@@ -138,8 +149,6 @@ if __name__ == '__main__':
             # env.render()
 
             object_pc = sample_hoi4d_object_pc((object_cat, object_name), SAMPLE_OBJECT_PC_NUM * 3)
-            if not flipped:
-                object_pc[:, :2] *= -1
 
             for i in range(env.horizon):
                 action = model.policy.predict(observation=obs, deterministic=True)[0]
@@ -163,11 +172,7 @@ if __name__ == '__main__':
                 object_emb = pointnet.get_embedding(object_pc[:SAMPLE_OBJECT_PC_NUM])
 
                 observation = np.concatenate([lab_obs, object_emb])
-                if not flipped:
-                #     observation[35:39] = transforms3d.quaternions.mat2quat(transforms3d.quaternions.quat2mat(observation[35:39])
-                #                                                         @ transforms3d.quaternions.quat2mat(np.array([0, 0, 0, 1])))
-                    observation[37:41] = transforms3d.quaternions.mat2quat(transforms3d.quaternions.quat2mat(observation[37:41]) # xarm7
-                                                                        @ transforms3d.quaternions.quat2mat(np.array([0, 0, 0, 1])))
+
                 observations.append(observation)
                 actions.append(lab_action)
                 
@@ -183,13 +188,20 @@ if __name__ == '__main__':
                     pass
                     # lab_env.render()
                     # env.render()
+                    
+                if i % 10 == 0:
+                    env.scene.update_render()
+                    cam = env.cameras["relocate_viz"]
+                    cam.take_picture()
+                    img = fetch_texture(cam, "Color", return_torch=False)
+                    cv2.imwrite(save_str+str(i)+".png", img*255)
                 
                 palm_pose = lab_pose_inv * lab_env.palm_link.get_pose()
             
             observations = np.stack(observations, axis=0)
             actions = np.stack(actions, axis=0)
             trajectory = {"observations" : observations, "actions" : actions}
-            if (lab_reward > 2):
+            if (lab_env.object.get_qpos()[0] > 1):
                 data.append(trajectory)
     
     save_file = open(os.path.join(model_list_path, "data.pkl"), "wb")
