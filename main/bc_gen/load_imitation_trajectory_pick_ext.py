@@ -2,6 +2,7 @@ from pathlib import Path
 
 import torch.nn as nn
 import numpy as np
+import sapien.core as sapien
 import transforms3d
 
 from hand_env_utils.arg_utils import *
@@ -68,6 +69,8 @@ if __name__ == '__main__':
 
     pointnet = load_pretrained_munet()
 
+    seed = 0
+
     data = []
     
     for model_exp in tqdm.tqdm(model_list[:]):
@@ -89,7 +92,7 @@ if __name__ == '__main__':
             env.rl_step = env.ability_sim_step_deterministic
             lab_env.rl_step = lab_env.ability_arm_sim_step_old
 
-            seed = random.randint(0, 1048576)
+            seed += 1
 
             env.set_seed(seed)
             lab_env.set_seed(seed)
@@ -122,6 +125,14 @@ if __name__ == '__main__':
             object_pc = sample_hoi4d_object_pc((object_cat, object_name), SAMPLE_OBJECT_PC_NUM * 3)
             if not flipped:
                 object_pc[:, :2] *= -1
+
+            position_0 = np.array([0, 0, env.object_height + 0.001])
+            orientation_0 = env.init_orientation
+            env.object.set_pose(sapien.Pose(position_0, orientation_0))
+            obj_pose_delta = lab_env.object.get_pose().p - env.object.get_pose().p
+            new_target_pose = sapien.Pose(lab_env.target_object.get_pose().p + obj_pose_delta, lab_env.target_object.get_pose().q)
+            lab_env.target_object.set_pose(new_target_pose)
+            lab_env.target_pose = new_target_pose
             
             lab_pose_inv = lab_env.robot.get_pose().inv()
             palm_pose = lab_pose_inv * lab_env.palm_link.get_pose()
@@ -133,7 +144,7 @@ if __name__ == '__main__':
 
             for i in range(init_len):
                 div_n = init_len - i
-                palm_target_pose = lab_pose_inv * env.palm_link.get_pose()
+                palm_target_pose = lab_pose_inv * (sapien.Pose(env.palm_link.get_pose().p + obj_pose_delta, env.palm_link.get_pose().q))
                 palm_delta_pose = palm_pose.inv() * palm_target_pose
                 delta_axis, delta_angle = transforms3d.quaternions.quat2axangle(palm_delta_pose.q)
                 if delta_angle > np.pi:
@@ -183,7 +194,7 @@ if __name__ == '__main__':
             link_name2id = {lab_env.robot.get_links()[i].get_name(): i for i in range(len(lab_env.robot.get_links()))}
             ee_link_id = link_name2id[lab_env.robot_info.palm_name]
             lab_pose_inv = lab_env.robot.get_pose().inv()
-            palm_pose = lab_pose_inv * env.palm_link.get_pose()
+            palm_pose = lab_pose_inv * (sapien.Pose(env.palm_link.get_pose().p + obj_pose_delta, env.palm_link.get_pose().q))
             lab_init_qpos = np.zeros(lab_env.robot.dof)
             xarm_init_qpos = lab_env.robot_info.arm_init_qpos
             lab_init_qpos[:lab_env.arm_dof] = xarm_init_qpos
@@ -196,7 +207,7 @@ if __name__ == '__main__':
                 action = model.policy.predict(observation=obs, deterministic=True)[0]
                 obs, reward, done, _ = env.step(action)
                 
-                palm_next_pose = lab_pose_inv * env.palm_link.get_pose()
+                palm_next_pose = lab_pose_inv * (sapien.Pose(env.palm_link.get_pose().p + obj_pose_delta, env.palm_link.get_pose().q))
                 palm_delta_pose = palm_pose.inv() * palm_next_pose
                 delta_axis, delta_angle = transforms3d.quaternions.quat2axangle(palm_delta_pose.q)
                 if delta_angle > np.pi:
@@ -233,11 +244,12 @@ if __name__ == '__main__':
                 
                 palm_pose = lab_pose_inv * lab_env.palm_link.get_pose()
             
-            observations = np.stack(observations, axis=0)
-            actions = np.stack(actions, axis=0)
-            trajectory = {"observations" : observations, "actions" : actions}
-            if (lab_reward > 2):
-                data.append(trajectory)
+                if (lab_reward > 2):
+                    observations = np.stack(observations, axis=0)
+                    actions = np.stack(actions, axis=0)
+                    trajectory = {"observations" : observations, "actions" : actions}
+                    data.append(trajectory)
+                    break
     
     save_file = open(os.path.join(model_list_path, "data.pkl"), "wb")
     pickle.dump(data, save_file)

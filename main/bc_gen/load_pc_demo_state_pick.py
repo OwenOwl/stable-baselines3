@@ -85,15 +85,14 @@ if __name__ == '__main__':
             for _ in range(5):
                 pass
                 # env.render()
-        
-        observations["relocate-point_cloud"] = np.stack(observations["relocate-point_cloud"], axis=0)
-        observations["state"] = np.stack(observations["state"], axis=0)
-        actions = np.stack(actions, axis=0)
-        trajectory = {"observations" : observations, "actions" : actions}
 
-        dist = np.linalg.norm(env.target_in_object)
-        if dist <= 0.05:
-            data.append(trajectory)
+            dist = np.linalg.norm(env.target_in_object)
+            if dist <= 0.05:
+                observations["relocate-point_cloud"] = np.stack(observations["relocate-point_cloud"], axis=0)
+                observations["state"] = np.stack(observations["state"], axis=0)
+                actions = np.stack(actions, axis=0)
+                trajectory = {"observations" : observations, "actions" : actions}
+                data.append(trajectory)
     
     save_file = open("/data/lixing/data/data-state-pick.pkl", "wb")
     pickle.dump(data, save_file)
