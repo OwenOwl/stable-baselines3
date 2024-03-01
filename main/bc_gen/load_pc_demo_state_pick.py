@@ -93,6 +93,7 @@ if __name__ == '__main__':
                 actions = np.stack(actions, axis=0)
                 trajectory = {"observations" : observations, "actions" : actions}
                 data.append(trajectory)
+                break
     
     save_file = open("/data/lixing/data/data-state-pick.pkl", "wb")
     pickle.dump(data, save_file)
