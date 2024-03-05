@@ -66,11 +66,11 @@ if __name__ == '__main__':
     succeed = 0
     seed = 90
 
-    for friction in [1, 0.7, 0.5, 0.2]:
+    for friction in [1]:# , 0.7, 0.5, 0.2]:
         for scale in [1]:# 0.5, 0.75, 1, 1.25, 1.5]:
-            for ITERS in range(5):
+            for ITERS in range(1):
                 succeed = 0
-                for (object_cat, object_name) in tqdm.tqdm(object_list[:1]):
+                for (object_cat, object_name) in tqdm.tqdm(object_list[25:]):
                     randomness = 1.0
 
                     lab_env = create_lab_env(use_visual_obs=True, obj_scale=scale, friction=friction, obj_name=(object_cat, object_name),

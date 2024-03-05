@@ -117,13 +117,18 @@ if __name__ == '__main__':
             model_path = os.path.join(model_list_path, model_exp, "model", model_names[-1])
             model = PPO.load(path=model_path, env=None)
 
+            position_0 = np.array([0, 0, env.object_height + 0.001])
+            orientation_0 = env.init_orientation
+            env.object.set_pose(sapien.Pose(position_0, orientation_0))
+            obj_pose_delta = lab_env.object.get_pose().p - env.object.get_pose().p
+
             # IK Initial xarm pose by pinocchio
             lab_IK_model = lab_env.robot.create_pinocchio_model()
             lab_PK_model = PartialKinematicModel(lab_env.robot, 'joint1', 'joint7')
             link_name2id = {lab_env.robot.get_links()[i].get_name(): i for i in range(len(lab_env.robot.get_links()))}
             ee_link_id = link_name2id[lab_env.robot_info.palm_name]
             lab_pose_inv = lab_env.robot.get_pose().inv()
-            palm_pose = lab_pose_inv * env.palm_link.get_pose()
+            palm_pose = lab_pose_inv * (sapien.Pose(env.palm_link.get_pose().p + obj_pose_delta, env.palm_link.get_pose().q))
             lab_init_qpos = np.zeros(lab_env.robot.dof)
             xarm_init_qpos = lab_env.robot_info.arm_init_qpos
             lab_init_qpos[:lab_env.arm_dof] = xarm_init_qpos
@@ -142,7 +147,7 @@ if __name__ == '__main__':
                 obs, reward, done, _ = env.step(action)
                 # import ipdb; ipdb.set_trace()
                 
-                palm_next_pose = lab_pose_inv * env.palm_link.get_pose()
+                palm_next_pose = lab_pose_inv * (sapien.Pose(env.palm_link.get_pose().p + obj_pose_delta, env.palm_link.get_pose().q))
                 palm_delta_pose = palm_pose.inv() * palm_next_pose
                 delta_axis, delta_angle = transforms3d.quaternions.quat2axangle(palm_delta_pose.q)
                 if delta_angle > np.pi:
