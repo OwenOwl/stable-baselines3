@@ -11,6 +11,7 @@ from stable_baselines3.common.torch_layers import PointNetStateExtractor
 from stable_baselines3.common.vec_env.hand_teleop_vec_env import HandTeleopVecEnv
 from stable_baselines3.dapg import DAPG2
 from stable_baselines3.ppo import PPO
+from hand_teleop.env.rl_env.pc_processing import process_relocate_pc, add_gaussian_noise, process_relocate_pc_noise
 
 
 def create_env(use_gui=False, is_eval=False, obj_scale=1.0, obj_name="tomato_soup_can",
@@ -56,9 +57,9 @@ def create_env(use_gui=False, is_eval=False, obj_scale=1.0, obj_name="tomato_sou
     }
 
     if pc_noise:
-        env.setup_visual_obs_config(task_setting.OBS_CONFIG["relocate_noise"])
+        env.setup_visual_obs_config(OBS_CONFIG["relocate_noise"])
     else:
-        env.setup_visual_obs_config(task_setting.OBS_CONFIG["relocate"])
+        env.setup_visual_obs_config(OBS_CONFIG["relocate"])
 
     return env
 

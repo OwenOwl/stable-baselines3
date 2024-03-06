@@ -10,6 +10,7 @@ from hand_teleop.env.rl_env.base import compute_inverse_kinematics
 from hand_teleop.kinematics.kinematics_helper import PartialKinematicModel
 from stable_baselines3.common.vec_env.subproc_vec_env import SubprocVecEnv
 from stable_baselines3.ppo import PPO
+from hand_teleop.env.rl_env.pc_processing import process_relocate_pc, add_gaussian_noise, process_relocate_pc_noise
 
 import random
 from datetime import datetime
@@ -43,9 +44,9 @@ def create_env(use_visual_obs=True, use_gui=False, obj_scale=1.0, obj_name=None,
         }
     }
     if pc_noise:
-        env.setup_visual_obs_config(task_setting.OBS_CONFIG["relocate_noise"])
+        env.setup_visual_obs_config(OBS_CONFIG["relocate_noise"])
     else:
-        env.setup_visual_obs_config(task_setting.OBS_CONFIG["relocate"])
+        env.setup_visual_obs_config(OBS_CONFIG["relocate"])
 
     if is_eval:
         env.setup_camera_from_config(task_setting.CAMERA_CONFIG["viz_only"])
