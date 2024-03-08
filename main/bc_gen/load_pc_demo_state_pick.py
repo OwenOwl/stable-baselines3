@@ -58,7 +58,7 @@ if __name__ == '__main__':
 
     data = []
 
-    for iters in tqdm.tqdm(range(1000)):
+    for iters in tqdm.tqdm(range(5000)):
         observations, actions = {"relocate-point_cloud": [], "state": []}, []
         obs = env.reset()
 
