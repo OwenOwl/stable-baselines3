@@ -32,7 +32,7 @@ def create_env(use_visual_obs=True, use_gui=False, obj_scale=1.0, obj_name=None,
     # Setup visual
     env.setup_camera_from_config(task_setting.CAMERA_CONFIG["relocate"])
     if pc_noise:
-        env.setup_visual_obs_config(task_setting.OBS_CONFIG["relocate_noise"])
+        env.setup_visual_obs_config(task_setting.OBS_CONFIG["relocate_noise_pick"])
     else:
         env.setup_visual_obs_config(task_setting.OBS_CONFIG["relocate"])
 

@@ -44,7 +44,7 @@ def create_env(use_gui=False, is_eval=False, obj_scale=1.0, obj_name="tomato_sou
         add_default_scene_light(env.scene, env.renderer)
 
     if pc_noise:
-        env.setup_visual_obs_config(task_setting.OBS_CONFIG["relocate_noise"])
+        env.setup_visual_obs_config(task_setting.OBS_CONFIG["relocate_noise_laptop"])
     else:
         env.setup_visual_obs_config(task_setting.OBS_CONFIG["relocate"])
 
