@@ -34,7 +34,7 @@ def create_lab_env(use_visual_obs, use_gui=False, obj_scale=1.0, friction=1, obj
     env.setup_camera_from_config(task_setting.CAMERA_CONFIG["relocate"])
 
     if pc_noise:
-        env.setup_visual_obs_config(task_setting.OBS_CONFIG["relocate_noise"])
+        env.setup_visual_obs_config(task_setting.OBS_CONFIG["relocate_noise_laptop"])
     else:
         env.setup_visual_obs_config(task_setting.OBS_CONFIG["relocate"])
     

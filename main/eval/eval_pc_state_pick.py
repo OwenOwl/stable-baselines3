@@ -34,7 +34,7 @@ def create_lab_env(use_visual_obs, use_gui=True, obj_scale=1.0, friction=1, obj_
     env.setup_camera_from_config(task_setting.CAMERA_CONFIG["relocate"])
 
     if pc_noise:
-        env.setup_visual_obs_config(task_setting.OBS_CONFIG["relocate_noise"])
+        env.setup_visual_obs_config(task_setting.OBS_CONFIG["relocate_noise_pick"])
     else:
         env.setup_visual_obs_config(task_setting.OBS_CONFIG["relocate"])
     
@@ -70,7 +70,7 @@ if __name__ == '__main__':
         for scale in [1]:# 0.5, 0.75, 1, 1.25, 1.5]:
             for ITERS in range(1):
                 succeed = 0
-                for (object_cat, object_name) in tqdm.tqdm(object_list[25:]):
+                for (object_cat, object_name) in tqdm.tqdm(object_list[:]):
                     randomness = 1.0
 
                     lab_env = create_lab_env(use_visual_obs=True, obj_scale=scale, friction=friction, obj_name=(object_cat, object_name),

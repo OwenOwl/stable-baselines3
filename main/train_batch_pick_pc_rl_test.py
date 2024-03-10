@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 
 from hand_env_utils.arg_utils import *
-from hand_env_utils.wandb_callback import WandbCallback, setup_wandb
+from hand_env_utils.wandb_callback_test import WandbCallback, setup_wandb
 from stable_baselines3.common.torch_layers import PointNetStateExtractor
 from stable_baselines3.common.vec_env.hand_teleop_vec_env import HandTeleopVecEnv
 from stable_baselines3.ppo import PPO
@@ -43,7 +43,7 @@ def create_env(use_gui=False, is_eval=False, obj_scale=1.0, obj_name="tomato_sou
         add_default_scene_light(env.scene, env.renderer)
 
     if pc_noise:
-        env.setup_visual_obs_config(task_setting.OBS_CONFIG["relocate_noise"])
+        env.setup_visual_obs_config(task_setting.OBS_CONFIG["relocate_noise_pick"])
     else:
         env.setup_visual_obs_config(task_setting.OBS_CONFIG["relocate"])
 

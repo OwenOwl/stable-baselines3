@@ -32,7 +32,7 @@ def create_env(use_visual_obs=True, use_gui=False, obj_scale=1.0, obj_name=None,
     # Setup visual
     env.setup_camera_from_config(task_setting.CAMERA_CONFIG["relocate"])
     if pc_noise:
-        env.setup_visual_obs_config(task_setting.OBS_CONFIG["relocate_noise"])
+        env.setup_visual_obs_config(task_setting.OBS_CONFIG["relocate_noise_safe"])
     else:
         env.setup_visual_obs_config(task_setting.OBS_CONFIG["relocate"])
 
@@ -49,7 +49,7 @@ from hand_teleop.utils.hoi4d_object_utils import sample_hoi4d_object_pc
 from hand_teleop.utils.munet import load_pretrained_munet
 
 if __name__ == '__main__':
-    model_path = "/data/lixing/results/state_safe-0.002/model/model_500.zip"
+    model_path = "/data/lixing/results/state_safe-0.002/model/model_2000.zip"
     model = PPO.load(path=model_path, env=None)
 
     env = create_env(use_visual_obs=True, obj_scale=1.0, obj_name=("random", "random"), pc_noise=True)
@@ -58,7 +58,7 @@ if __name__ == '__main__':
 
     data = []
 
-    for iters in tqdm.tqdm(range(500)):
+    for iters in tqdm.tqdm(range(1000)):
         observations, actions = {"relocate-point_cloud": [], "state": []}, []
         obs = env.reset()
 
