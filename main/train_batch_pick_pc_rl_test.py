@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 
 from hand_env_utils.arg_utils import *
-from hand_env_utils.wandb_callback import WandbCallback, setup_wandb
+from hand_env_utils.wandb_callback_test import WandbCallback, setup_wandb
 from stable_baselines3.common.torch_layers import PointNetStateExtractor
 from stable_baselines3.common.vec_env.hand_teleop_vec_env import HandTeleopVecEnv
 from stable_baselines3.ppo import PPO
