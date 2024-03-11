@@ -101,14 +101,13 @@ class WandbCallback(BaseCallback):
                 obs = env.reset()
                 img_dict = {key: [] for key in self.eval_cam_names}
 
-                if self.test_obs is None:
-                    self.test_obs = obs
                 point_net = self.model.policy.features_extractor.point_net
-                observation, _ = self.model.policy.obs_to_tensor(self.test_obs)
+                observation, _ = self.model.policy.obs_to_tensor(obs)
                 preprocessed_obs = preprocess_obs(observation, self.model.policy.observation_space, normalize_images=self.model.policy.normalize_images)
                 preprocessed_obs = torch.transpose(preprocessed_obs["relocate-point_cloud"], 1, 2)
                 max_indices = point_net(preprocessed_obs, None)["max_indices"]
                 print("MAX_INDICES: ", max_indices)
+                print("MAX_POS: ", observation["relocate-point_cloud"][0, max_indices, :])
 
                 for i in range(env.horizon):
                     action = self.model.policy.predict(observation=obs, deterministic=True)[0]
