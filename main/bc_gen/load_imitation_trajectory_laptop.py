@@ -2,6 +2,7 @@ from pathlib import Path
 
 import torch.nn as nn
 import numpy as np
+import sapien.core as sapien
 import transforms3d
 
 from hand_env_utils.arg_utils import *
@@ -68,6 +69,8 @@ if __name__ == '__main__':
 
     pointnet = load_pretrained_munet()
 
+    seed = 0
+
     data = []
     
     for model_exp in tqdm.tqdm(model_list):
@@ -87,7 +90,7 @@ if __name__ == '__main__':
             env.rl_step = env.ability_sim_step_deterministic
             lab_env.rl_step = lab_env.ability_arm_sim_step
 
-            seed = random.randint(0, 1048576)
+            seed += 1
 
             env.set_seed(seed)
             lab_env.set_seed(seed)
