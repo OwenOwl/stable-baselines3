@@ -57,7 +57,7 @@ import cv2
 if __name__ == '__main__':
     f = open("results/eval/pc_state_pick.txt", "w")
 
-    model_path = "/home/lixing/results/pc_state_pick/model/model_0.zip"
+    model_path = "/home/lixing/results/pc_state_pick_dagger/model/model_0.zip"
 
     object_list = HOI4D_OBJECT_LIST['pick'] # IN DISTRIBUTION
 
@@ -66,7 +66,7 @@ if __name__ == '__main__':
     succeed = 0
     seed = 90
 
-    for friction in [1]:# , 0.7, 0.5, 0.2]:
+    for friction in [0.5]:# , 0.7, 0.5, 0.2]:
         for scale in [1]:# 0.5, 0.75, 1, 1.25, 1.5]:
             for ITERS in range(1):
                 succeed = 0
@@ -112,6 +112,7 @@ if __name__ == '__main__':
                         
                         if lab_done:
                             print("cartesian")
+                            break
                 
                 print(succeed, " / ", len(object_list))
                 f.write("%.3f " % (succeed / len(object_list)))
