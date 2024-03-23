@@ -16,7 +16,7 @@ from stable_baselines3.ppo import PPO
 def create_env(use_gui=False, is_eval=False, obj_scale=1.0, obj_name="tomato_soup_can",
                object_pc_sample=0, pc_noise=True, **renderer_kwargs):
     import os
-    from hand_teleop.env.rl_env.free_pick_env import FreePickEnv
+    from hand_teleop.env.rl_env.free_pick_bot_env import FreePickBotEnv
     from hand_teleop.real_world import task_setting
     from hand_teleop.env.sim_env.constructor import add_default_scene_light
     frame_skip = 5
@@ -31,7 +31,7 @@ def create_env(use_gui=False, is_eval=False, obj_scale=1.0, obj_name="tomato_sou
     # Specify rendering device if the computing device is given
     if "CUDA_VISIBLE_DEVICES" in os.environ:
         env_params["device"] = "cuda"
-    env = FreePickEnv(**env_params)
+    env = FreePickBotEnv(**env_params)
 
     # Setup visual
     if not is_eval:
@@ -67,7 +67,7 @@ if __name__ == '__main__':
     parser.add_argument('--ep', type=int, default=10)
     parser.add_argument('--bs', type=int, default=200)
     parser.add_argument('--seed', type=int, default=100)
-    parser.add_argument('--iter', type=int, default=200)
+    parser.add_argument('--iter', type=int, default=1000)
     parser.add_argument('--randomness', type=float, default=1.0)
     parser.add_argument('--exp', type=str)
     parser.add_argument('--objscale', type=float, default=1.0)
