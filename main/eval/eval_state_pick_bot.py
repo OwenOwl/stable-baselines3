@@ -15,10 +15,10 @@ from hand_teleop.utils.hoi4d_object_utils import HOI4D_OBJECT_LIST
 import random
 from datetime import datetime
 
-def create_lab_env(use_visual_obs, use_gui=True, obj_scale=1.0, friction=1, obj_name="tomato_soup_can",
+def create_lab_env(use_visual_obs, use_gui=False, obj_scale=1.0, friction=1, obj_name="tomato_soup_can",
                    randomness_scale=1, pc_noise=True):
     import os
-    from hand_teleop.env.rl_env.free_laptop_env import FreeLaptopEnv
+    from hand_teleop.env.rl_env.free_pick_bot_env import FreePickBotEnv
     from hand_teleop.real_world import task_setting
     from hand_teleop.env.sim_env.constructor import add_default_scene_light
     frame_skip = 5
@@ -28,7 +28,7 @@ def create_lab_env(use_visual_obs, use_gui=True, obj_scale=1.0, friction=1, obj_
     # Specify rendering device if the computing device is given
     if "CUDA_VISIBLE_DEVICES" in os.environ:
         env_params["device"] = "cuda"
-    env = FreeLaptopEnv(**env_params)
+    env = FreePickBotEnv(**env_params)
     
     if use_gui:
         config = task_setting.CAMERA_CONFIG["viz_only"].copy()
@@ -47,19 +47,19 @@ from hand_teleop.utils.camera_utils import fetch_texture
 import cv2
 
 if __name__ == '__main__':
-    f = open("results/eval/state_laptop.txt", "w")
+    f = open("results/eval/state_pick.txt", "w")
 
-    model_path = "/home/lixing/results/state_laptop-0.005/model/model_2000.zip"
+    model_path = "/home/lixing/results/state_bottle-0.002/model/model_4950.zip"
     
-    object_list = HOI4D_OBJECT_LIST['laptop_eval'] # OUT OF DISTRIBUTION
+    object_list = HOI4D_OBJECT_LIST['pick_bot'] # OUT OF DISTRIBUTION
 
     pointnet = load_pretrained_munet()
 
     succeed = 0
     seed = 0
     
-    for friction in [1]:#, 0.7, 0.5, 0.2]:
-        for scale in [1]:#0.5, 0.75, 1, 1.25, 1.5]:
+    for friction in [0.5]:#, 0.7, 0.5, 0.2]:
+        for scale in [0.7]:# 0.5, 0.75, 1, 1.25, 1.5]:
             for ITERS in range(1):
                 succeed = 0
                 for (object_cat, object_name) in tqdm.tqdm(object_list):
@@ -79,26 +79,32 @@ if __name__ == '__main__':
                     from sapien.utils import Viewer
                     from hand_teleop.env.sim_env.constructor import add_default_scene_light
 
-                    viewer = Viewer(lab_env.renderer)
-                    viewer.set_scene(lab_env.scene)
-                    add_default_scene_light(lab_env.scene, lab_env.renderer)
-                    lab_env.viewer = viewer
-                    viewer.toggle_pause(True)
+                    # viewer = Viewer(lab_env.renderer)
+                    # viewer.set_scene(lab_env.scene)
+                    # add_default_scene_light(lab_env.scene, lab_env.renderer)
+                    # lab_env.viewer = viewer
+                    # viewer.toggle_pause(True)
 
                     model = PPO.load(path=model_path, env=None)
                     
-                    lab_env.render()
+                    # lab_env.render()
 
                     for i in range(lab_env.horizon):
                         lab_action = model.policy.predict(lab_obs, deterministic=True)[0]
-                        lab_obs, lab_reward, _, _ = lab_env.step(lab_action)
+                        lab_obs, lab_reward, lab_done, _ = lab_env.step(lab_action)
 
                         for _ in range(5):
                             pass
-                            lab_env.render()
-
-                        if lab_env.object.get_qpos()[0] >= np.pi / 12 * 5:
+                            # lab_env.render()
+                        
+                        dist = np.linalg.norm(lab_env.target_in_object)
+                        if dist <= 0.05:
                             succeed += 1
+                            print("succeed")
+                            break
+                        
+                        if lab_done:
+                            print("cartesian")
                             break
                 
                 print(succeed, " / ", len(object_list))
