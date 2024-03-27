@@ -5,8 +5,8 @@ import numpy as np
 
 from hand_env_utils.arg_utils import *
 from hand_env_utils.wandb_callback import WandbCallback, setup_wandb
-from stable_baselines3.common.vec_env.subproc_vec_env import SubprocVecEnv
-from stable_baselines3.dapg import DAPG
+from stable_baselines3.common.vec_env.subproc_vec_env_is import SubprocVecEnvIS
+from stable_baselines3.dapg import DAPGIS
 
 from datetime import datetime
 
@@ -89,11 +89,11 @@ if __name__ == '__main__':
                                  is_eval=True, randomness_scale=randomness)
         return environment
 
-    env = SubprocVecEnv([create_env_fn] * args.workers, "spawn")
+    env = SubprocVecEnvIS([create_env_fn] * args.workers, "spawn")
     
     print(env.observation_space, env.action_space)
 
-    model = DAPG("MlpPolicy", env, verbose=1,
+    model = DAPGIS("MlpPolicy", env, verbose=1,
                  dataset_path=args.dataset_path,
                  bc_coef=args.bcc,
                  bc_decay=1,
@@ -113,7 +113,7 @@ if __name__ == '__main__':
 
     model.learn(
         total_timesteps=int(env_iter),
-        bc_init_epoch=50,
+        bc_init_epoch=1,
         bc_init_batch_size=2000,
         callback=WandbCallback(
             model_save_freq=50,
