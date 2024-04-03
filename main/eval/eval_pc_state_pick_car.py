@@ -15,7 +15,7 @@ from hand_teleop.utils.hoi4d_object_utils import HOI4D_OBJECT_LIST
 import random
 from datetime import datetime
 
-def create_lab_env(use_visual_obs, use_gui=True, obj_scale=1.0, friction=1, obj_name="tomato_soup_can",
+def create_lab_env(use_visual_obs, use_gui=False, obj_scale=1.0, friction=1, obj_name="tomato_soup_can",
                    randomness_scale=1, pc_noise=True):
     import os
     from hand_teleop.env.rl_env.free_pick_car_env import FreePickCarEnv
@@ -87,15 +87,15 @@ if __name__ == '__main__':
                     from sapien.utils import Viewer
                     from hand_teleop.env.sim_env.constructor import add_default_scene_light
 
-                    viewer = Viewer(lab_env.renderer)
-                    viewer.set_scene(lab_env.scene)
-                    add_default_scene_light(lab_env.scene, lab_env.renderer)
-                    lab_env.viewer = viewer
-                    viewer.toggle_pause(True)
+                    # viewer = Viewer(lab_env.renderer)
+                    # viewer.set_scene(lab_env.scene)
+                    # add_default_scene_light(lab_env.scene, lab_env.renderer)
+                    # lab_env.viewer = viewer
+                    # viewer.toggle_pause(True)
 
                     model = PPO.load(path=model_path, env=None)
                     
-                    lab_env.render()
+                    # lab_env.render()
 
                     for i in range(lab_env.horizon):
                         lab_action = model.policy.predict(lab_obs, deterministic=True)[0]
@@ -103,14 +103,15 @@ if __name__ == '__main__':
 
                         for _ in range(5):
                             pass
-                            lab_env.render()
+                            # lab_env.render()
                         
                         dist = np.linalg.norm(lab_env.target_in_object)
                         if dist <= 0.05:
+                            print("succeed")
                             succeed += 1
                             break
                         
-                        if lab_done:
+                        if lab_done and i < lab_env.horizon - 1:
                             print("cartesian")
                             break
                 

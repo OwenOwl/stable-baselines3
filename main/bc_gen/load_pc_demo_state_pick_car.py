@@ -49,7 +49,7 @@ from hand_teleop.utils.hoi4d_object_utils import sample_hoi4d_object_pc
 from hand_teleop.utils.munet import load_pretrained_munet
 
 if __name__ == '__main__':
-    model_path = "/data/lixing/results/state_toycar-0.005/model/model_4950.zip"
+    model_path = "/data/lixing/results/state_toycar_f20-0.0/model/model_4950.zip"
     model = PPO.load(path=model_path, env=None)
 
     env = create_env(use_visual_obs=True, obj_scale=1.0, obj_name=("random", "random"), pc_noise=True)
@@ -95,7 +95,7 @@ if __name__ == '__main__':
                 data.append(trajectory)
                 break
     
-    save_file = open("/data/lixing/data/data-state-pick-car.pkl", "wb")
+    save_file = open("/data/lixing/data/data-state-pick-car-f20.pkl", "wb")
     pickle.dump(data, save_file)
     save_file.close()
     print(len(data))
