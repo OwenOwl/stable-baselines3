@@ -19,7 +19,7 @@ import pickle
 def create_env(use_gui=False, is_eval=False, obj_scale=1.0, obj_name="tomato_soup_can",
                object_pc_sample=0, pc_noise=False, **renderer_kwargs):
     import os
-    from hand_teleop.env.rl_env.free_pick_env import FreePickEnv
+    from hand_teleop.env.rl_env.free_pick_car_env import FreePickCarEnv
     from hand_teleop.real_world import task_setting
     from hand_teleop.env.sim_env.constructor import add_default_scene_light
     frame_skip = 5
@@ -34,7 +34,7 @@ def create_env(use_gui=False, is_eval=False, obj_scale=1.0, obj_name="tomato_sou
     # Specify rendering device if the computing device is given
     if "CUDA_VISIBLE_DEVICES" in os.environ:
         env_params["device"] = "cuda"
-    env = FreePickEnv(**env_params)
+    env = FreePickCarEnv(**env_params)
 
     # Setup visual
     if not is_eval:
@@ -151,7 +151,7 @@ if __name__ == '__main__':
 
     viewer = env.render()
 
-    root = "sim_trajs_0325_pick_bottle"
+    root = "sim_trajs_0409_pick_car"
 
     done = False
     manual_action = False
